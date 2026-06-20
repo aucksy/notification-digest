@@ -44,7 +44,9 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          # Strip any stray CR/LF/spaces before decoding so a copy-pasted secret can't break it.
+          printf '%s' "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > "$RUNNER_TEMP/release.keystore"
+          test -s "$RUNNER_TEMP/release.keystore" && echo "keystore decoded ($(wc -c < "$RUNNER_TEMP/release.keystore") bytes)"
 
       - name: Build signed APK and AAB
         env:

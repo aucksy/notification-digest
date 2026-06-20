@@ -24,9 +24,13 @@ import javax.inject.Inject
 
 data class AppFilterOption(val packageName: String, val appName: String, val count: Int)
 
+/** A transient message for the snackbar. When [undo] is non-null, an Undo action is shown (~2s). */
+data class InboxMessage(val text: String, val undo: (suspend () -> Unit)? = null)
+
 /**
- * Inbox state. By design it shows **delivered** notifications only — pending ones stay hidden behind
- * a count + Deliver banner, so the user never peeks before delivering.
+ * Inbox state. Shows **delivered** notifications as one flat list (the single place notifications
+ * live, for the retention duration). Collected-but-unseen ones stay hidden behind an "archived"
+ * count + See Now.
  */
 data class InboxUiState(
     val items: List<AppNotification> = emptyList(),
@@ -35,7 +39,7 @@ data class InboxUiState(
     val appFilter: String? = null,
     val selectedIds: Set<Long> = emptySet(),
     val isDelivering: Boolean = false,
-    val waitingCount: Int = 0,
+    val archivedCount: Int = 0,
     val totalDelivered: Int = 0,
 ) {
     val selectionMode: Boolean get() = selectedIds.isNotEmpty()
@@ -54,8 +58,8 @@ class InboxViewModel @Inject constructor(
     private val selectedIds = MutableStateFlow<Set<Long>>(emptySet())
     private val isDelivering = MutableStateFlow(false)
 
-    private val eventChannel = Channel<String>(Channel.BUFFERED)
-    val events = eventChannel.receiveAsFlow()
+    private val messageChannel = Channel<InboxMessage>(Channel.BUFFERED)
+    val messages = messageChannel.receiveAsFlow()
 
     private val delivered = query.flatMapLatest { q ->
         if (q.isBlank()) notificationRepository.observeDelivered()
@@ -80,8 +84,8 @@ class InboxViewModel @Inject constructor(
         )
     }
 
-    val uiState = combine(base, notificationRepository.observePendingCount()) { state, waiting ->
-        state.copy(waitingCount = waiting)
+    val uiState = combine(base, notificationRepository.observePendingCount()) { state, archived ->
+        state.copy(archivedCount = archived)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), InboxUiState())
 
     fun onQueryChange(value: String) { query.value = value }
@@ -103,15 +107,22 @@ class InboxViewModel @Inject constructor(
     fun open(notification: AppNotification) {
         viewModelScope.launch {
             val result = openNotificationUseCase(notification)
-            eventChannel.send(messageFor(result, notification.appName))
+            messageChannel.send(InboxMessage(messageFor(result, notification.appName)))
         }
     }
 
+    /** Swipe-left: delete with an Undo that re-inserts the removed notifications. */
     fun delete(ids: List<Long>) {
+        val removed = uiState.value.items.filter { it.id in ids }
         viewModelScope.launch {
             notificationRepository.delete(ids)
             selectedIds.value = selectedIds.value - ids.toSet()
-            eventChannel.send(if (ids.size == 1) "Notification deleted" else "${ids.size} deleted")
+            messageChannel.send(
+                InboxMessage(
+                    text = if (ids.size == 1) "Notification deleted" else "${ids.size} deleted",
+                    undo = { removed.forEach { notificationRepository.insert(it) } },
+                ),
+            )
         }
     }
 
@@ -125,28 +136,37 @@ class InboxViewModel @Inject constructor(
     fun markAllRead() {
         viewModelScope.launch {
             notificationRepository.markAllDeliveredRead()
-            eventChannel.send("Marked all as read")
+            messageChannel.send(InboxMessage("Marked all as read"))
         }
     }
 
+    /** Swipe-right: move the app out of Digest into Real-Time, with an Undo that restores it. */
     fun makeAppRealtime(packageName: String, appName: String) {
         viewModelScope.launch {
+            val previous = appRuleRepository.getMode(packageName)
             appRuleRepository.setMode(packageName, appName, DigestMode.REALTIME)
             if (appFilter.value == packageName) appFilter.value = null
-            eventChannel.send("$appName is now Real-Time")
+            messageChannel.send(
+                InboxMessage(
+                    text = "$appName is now Real-Time",
+                    undo = { appRuleRepository.setMode(packageName, appName, previous) },
+                ),
+            )
         }
     }
 
-    fun deliverNow() {
+    fun seeNow() {
         viewModelScope.launch {
             isDelivering.value = true
             val result = runCatching { deliverDigestUseCase(DigestType.MANUAL) }.getOrNull()
             isDelivering.value = false
-            eventChannel.send(
-                when (result) {
-                    is DeliverResult.Delivered -> "Delivered ${result.notificationCount} notifications"
-                    else -> "Nothing waiting to deliver"
-                },
+            messageChannel.send(
+                InboxMessage(
+                    when (result) {
+                        is DeliverResult.Delivered -> "${result.notificationCount} notifications added to your inbox"
+                        else -> "Nothing to show yet"
+                    },
+                ),
             )
         }
     }

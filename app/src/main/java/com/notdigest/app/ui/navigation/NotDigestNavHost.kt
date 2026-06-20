@@ -1,8 +1,8 @@
 package com.notdigest.app.ui.navigation
 
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material.icons.Icons
@@ -10,12 +10,10 @@ import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.History
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
@@ -33,15 +31,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import com.notdigest.app.ui.apps.AppsScreen
-import com.notdigest.app.ui.digest.DigestDetailScreen
-import com.notdigest.app.ui.history.HistoryScreen
 import com.notdigest.app.ui.home.HomeScreen
 import com.notdigest.app.ui.inbox.InboxScreen
 import com.notdigest.app.ui.onboarding.OnboardingScreen
@@ -58,7 +52,6 @@ private data class Tab(
 private val tabs = listOf(
     Tab(NavRoutes.HOME, "Home", Icons.Filled.Home, Icons.Outlined.Home),
     Tab(NavRoutes.INBOX, "Inbox", Icons.Filled.Inbox, Icons.Outlined.Inbox),
-    Tab(NavRoutes.HISTORY, "History", Icons.Filled.History, Icons.Outlined.History),
     Tab(NavRoutes.APPS, "Apps", Icons.Filled.Apps, Icons.Outlined.Apps),
     Tab(NavRoutes.SETTINGS, "Settings", Icons.Filled.Settings, Icons.Outlined.Settings),
 )
@@ -83,9 +76,7 @@ fun NotDigestNavHost(
 
     Scaffold(
         bottomBar = {
-            if (showBottomBar) {
-                BottomBar(navController = navController, backStackEntry = backStackEntry)
-            }
+            if (showBottomBar) BottomBar(navController = navController, backStackEntry = backStackEntry)
         },
     ) { innerPadding ->
         NavHost(
@@ -110,20 +101,11 @@ fun NotDigestNavHost(
                 HomeScreen(
                     contentPadding = innerPadding,
                     onOpenInbox = { navController.navigateTab(NavRoutes.INBOX) },
-                    onOpenHistory = { navController.navigateTab(NavRoutes.HISTORY) },
                     onOpenApps = { navController.navigateTab(NavRoutes.APPS) },
-                    onOpenSchedule = { navController.navigate(NavRoutes.SCHEDULE) },
-                    onOpenDigest = { id -> navController.navigate(NavRoutes.digestDetail(id)) },
                 )
             }
             composable(NavRoutes.INBOX) {
                 InboxScreen(contentPadding = innerPadding)
-            }
-            composable(NavRoutes.HISTORY) {
-                HistoryScreen(
-                    contentPadding = innerPadding,
-                    onOpenDigest = { id -> navController.navigate(NavRoutes.digestDetail(id)) },
-                )
             }
             composable(NavRoutes.APPS) {
                 AppsScreen(contentPadding = innerPadding)
@@ -137,13 +119,6 @@ fun NotDigestNavHost(
             composable(NavRoutes.SCHEDULE) {
                 ScheduleScreen(onBack = { navController.popBackStack() })
             }
-            composable(
-                route = NavRoutes.DIGEST_DETAIL,
-                arguments = listOf(navArgument(NavRoutes.ARG_DIGEST_ID) { type = NavType.LongType }),
-            ) { entry ->
-                val id = entry.arguments?.getLong(NavRoutes.ARG_DIGEST_ID) ?: 0L
-                DigestDetailScreen(digestId = id, onBack = { navController.popBackStack() })
-            }
         }
     }
 }
@@ -154,7 +129,7 @@ private fun BottomBar(
     backStackEntry: androidx.navigation.NavBackStackEntry?,
 ) {
     val viewModel: BottomBarViewModel = hiltViewModel()
-    val pendingCount by viewModel.pendingCount.collectAsStateWithLifecycle()
+    val archivedCount by viewModel.pendingCount.collectAsStateWithLifecycle()
 
     NavigationBar {
         tabs.forEach { tab ->
@@ -164,8 +139,8 @@ private fun BottomBar(
                 onClick = { navController.navigateTab(tab.route) },
                 icon = {
                     val icon = if (selected) tab.selectedIcon else tab.unselectedIcon
-                    if (tab.route == NavRoutes.INBOX && pendingCount > 0) {
-                        BadgedBox(badge = { Badge { Text(if (pendingCount > 99) "99+" else "$pendingCount") } }) {
+                    if (tab.route == NavRoutes.INBOX && archivedCount > 0) {
+                        BadgedBox(badge = { Badge { Text(if (archivedCount > 99) "99+" else "$archivedCount") } }) {
                             Icon(icon, contentDescription = tab.label)
                         }
                     } else {

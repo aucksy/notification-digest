@@ -46,9 +46,7 @@ class DigestNotifierImpl @Inject constructor(
             style.addLine("+${digest.groups.size - MAX_LINES} more apps")
         }
 
-        val open = NotificationDeepLinks.openRoute(
-            context, NavRoutes.digestDetail(digest.digest.id),
-        )
+        val open = NotificationDeepLinks.openRoute(context, NavRoutes.INBOX)
 
         val notification = NotificationCompat.Builder(context, Constants.CHANNEL_DIGEST)
             .setSmallIcon(R.drawable.ic_notification)

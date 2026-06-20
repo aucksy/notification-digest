@@ -138,7 +138,7 @@ fun SettingsScreen(
                 )
                 SwitchRow(
                     title = "Collection status",
-                    subtitle = "A quiet ongoing notification while collecting",
+                    subtitle = "Show a quiet ongoing count while collecting (off by default)",
                     checked = prefs.statusNotificationEnabled,
                     onCheckedChange = viewModel::setStatusNotification,
                 )

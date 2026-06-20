@@ -1,6 +1,7 @@
 package com.notdigest.app.ui.apps
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -102,7 +103,10 @@ fun AppsScreen(
                 )
                 FilterRow(selected = state.filter, onSelect = viewModel::setFilter)
                 if (state.recentlyChanged.isNotEmpty() && state.filter == AppsFilter.ALL && state.query.isBlank()) {
-                    RecentlyChanged(items = state.recentlyChanged)
+                    RecentlyChanged(
+                        items = state.recentlyChanged,
+                        onTap = { viewModel.onQueryChange(it.appName) },
+                    )
                 }
             }
 
@@ -171,7 +175,7 @@ private fun FilterRow(selected: AppsFilter, onSelect: (AppsFilter) -> Unit) {
 }
 
 @Composable
-private fun RecentlyChanged(items: List<AppRowItem>) {
+private fun RecentlyChanged(items: List<AppRowItem>, onTap: (AppRowItem) -> Unit) {
     Column {
         Text(
             "Recently changed",
@@ -188,6 +192,7 @@ private fun RecentlyChanged(items: List<AppRowItem>) {
                 Row(
                     Modifier.clip(MaterialTheme.shapes.large)
                         .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable { onTap(app) }
                         .padding(horizontal = Spacing.md, vertical = Spacing.sm),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(Spacing.sm),

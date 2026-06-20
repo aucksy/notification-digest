@@ -44,7 +44,13 @@ class DigestNotificationListenerService : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         NotificationAccessState.setConnected(true)
-        scope.launch { runCatching { initializeAppData() } }
+        scope.launch {
+            runCatching { initializeAppData() }
+            // Status notification is off by default; clear any lingering one (e.g. after an update).
+            if (!preferencesRepository.snapshot().statusNotificationEnabled) {
+                digestNotifier.clearCollectingStatus()
+            }
+        }
     }
 
     override fun onListenerDisconnected() {

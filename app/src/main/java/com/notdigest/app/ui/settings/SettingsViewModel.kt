@@ -7,6 +7,7 @@ import com.notdigest.app.domain.model.UserPreferences
 import com.notdigest.app.domain.repository.DigestRepository
 import com.notdigest.app.domain.repository.NotificationRepository
 import com.notdigest.app.domain.repository.PreferencesRepository
+import com.notdigest.app.domain.system.DigestNotifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,6 +21,7 @@ class SettingsViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val notificationRepository: NotificationRepository,
     private val digestRepository: DigestRepository,
+    private val digestNotifier: DigestNotifier,
 ) : ViewModel() {
 
     val preferences = preferencesRepository.preferences
@@ -36,7 +38,10 @@ class SettingsViewModel @Inject constructor(
     fun setRetentionDays(days: Int) = launch { preferencesRepository.setRetentionDays(days) }
     fun setHaptics(enabled: Boolean) = launch { preferencesRepository.setHapticsEnabled(enabled) }
     fun setRecommendations(enabled: Boolean) = launch { preferencesRepository.setRecommendationsEnabled(enabled) }
-    fun setStatusNotification(enabled: Boolean) = launch { preferencesRepository.setStatusNotificationEnabled(enabled) }
+    fun setStatusNotification(enabled: Boolean) = launch {
+        preferencesRepository.setStatusNotificationEnabled(enabled)
+        if (!enabled) digestNotifier.clearCollectingStatus()
+    }
 
     fun clearAllData() {
         launch {

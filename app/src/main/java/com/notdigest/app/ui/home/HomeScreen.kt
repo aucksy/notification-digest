@@ -1,6 +1,6 @@
 package com.notdigest.app.ui.home
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,21 +15,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.DoneAll
-import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -44,8 +42,8 @@ import com.notdigest.app.domain.model.NotificationStats
 import com.notdigest.app.ui.LocalIs24Hour
 import com.notdigest.app.ui.components.AnimatedCount
 import com.notdigest.app.ui.components.EmptyState
+import com.notdigest.app.ui.components.GradientHeroCard
 import com.notdigest.app.ui.components.NotDigestCard
-import com.notdigest.app.ui.components.NotificationListItem
 import com.notdigest.app.ui.components.SectionHeader
 import com.notdigest.app.ui.theme.Spacing
 import java.time.Instant
@@ -55,17 +53,14 @@ import java.time.ZoneId
 fun HomeScreen(
     contentPadding: PaddingValues,
     onOpenInbox: () -> Unit,
-    onOpenHistory: () -> Unit,
     onOpenApps: () -> Unit,
-    onOpenSchedule: () -> Unit,
-    onOpenDigest: (Long) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val is24Hour = LocalIs24Hour.current
 
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    LaunchedEffect(Unit) {
         viewModel.events.collect { snackbarHostState.showSnackbar(it) }
     }
 
@@ -84,13 +79,15 @@ fun HomeScreen(
 
             item {
                 HeroCard(
-                    waiting = state.stats.waitingCount,
+                    archived = state.stats.waitingCount,
                     nextDigestLabel = state.nextDigestAt?.let {
                         TimeFormatter.whenLabel(it, System.currentTimeMillis(), is24Hour)
                     },
                     isDelivering = state.isDelivering,
-                    onReview = onOpenInbox,
-                    onDeliver = viewModel::deliverNow,
+                    onSeeNow = {
+                        viewModel.seeNow()
+                        onOpenInbox()
+                    },
                 )
             }
 
@@ -107,17 +104,15 @@ fun HomeScreen(
                 }
             }
 
-            // By design, collected notifications are NOT previewed here — the dashboard shows only
-            // counts so the user is never tempted to peek before delivering.
             item {
                 NotDigestCard {
                     EmptyState(
                         icon = Icons.Filled.DoneAll,
                         title = if (state.stats.waitingCount == 0) "Nothing collecting" else "Collecting quietly",
                         subtitle = if (state.stats.waitingCount == 0) {
-                            "When your Digest apps send notifications, they'll wait here out of sight until you deliver them."
+                            "When your Digest apps send notifications, they stay here out of sight until you See Now."
                         } else {
-                            "${state.stats.waitingCount} waiting, kept out of sight. Tap Deliver now, or wait for your next digest."
+                            "${state.stats.waitingCount} archived, out of sight. Tap See Now, or they arrive at your next digest."
                         },
                     )
                 }
@@ -156,15 +151,14 @@ private fun Greeting() {
 
 @Composable
 private fun HeroCard(
-    waiting: Int,
+    archived: Int,
     nextDigestLabel: String?,
     isDelivering: Boolean,
-    onReview: () -> Unit,
-    onDeliver: () -> Unit,
+    onSeeNow: () -> Unit,
 ) {
-    com.notdigest.app.ui.components.GradientHeroCard {
+    GradientHeroCard {
         Text(
-            text = if (waiting == 0) "You're all caught up" else "$waiting notifications waiting",
+            text = if (archived == 0) "You're all caught up" else "$archived notifications archived",
             style = MaterialTheme.typography.headlineMedium,
             color = Color.White,
             fontWeight = FontWeight.Bold,
@@ -176,33 +170,21 @@ private fun HeroCard(
             color = Color.White.copy(alpha = 0.85f),
         )
         Spacer(Modifier.height(Spacing.lg))
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            Button(
-                onClick = onReview,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = MaterialTheme.colorScheme.primary,
-                ),
-                modifier = Modifier.weight(1f),
-            ) {
-                Icon(Icons.Filled.Inbox, null, modifier = Modifier.size(18.dp))
+        Button(
+            onClick = onSeeNow,
+            enabled = !isDelivering,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.White,
+                contentColor = MaterialTheme.colorScheme.primary,
+            ),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (isDelivering) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
+            } else {
+                Icon(Icons.Filled.Visibility, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.size(Spacing.sm))
-                Text("Review", fontWeight = FontWeight.SemiBold)
-            }
-            OutlinedButton(
-                onClick = onDeliver,
-                enabled = !isDelivering,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.7f)),
-                modifier = Modifier.weight(1f),
-            ) {
-                if (isDelivering) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
-                } else {
-                    Icon(Icons.Filled.Bolt, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(Spacing.sm))
-                    Text("Deliver now", fontWeight = FontWeight.SemiBold)
-                }
+                Text("See Now", fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -211,34 +193,16 @@ private fun HeroCard(
 @Composable
 private fun StatsRow(stats: NotificationStats, onOpenApps: () -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md), modifier = Modifier.fillMaxWidth()) {
-        StatTile(
-            value = stats.batchedToday,
-            label = "Batched today",
-            modifier = Modifier.weight(1f),
-        )
-        StatTile(
-            value = stats.avoidedLast7Days,
-            label = "Avoided · 7 days",
-            modifier = Modifier.weight(1f),
-        )
-        StatTile(
-            value = stats.realtimeAppCount,
-            label = "Real-Time apps",
-            modifier = Modifier.weight(1f),
-            onClick = onOpenApps,
-        )
+        StatTile(value = stats.batchedToday, label = "Archived today", modifier = Modifier.weight(1f))
+        StatTile(value = stats.avoidedLast7Days, label = "Avoided · 7 days", modifier = Modifier.weight(1f))
+        StatTile(value = stats.realtimeAppCount, label = "Real-Time apps", modifier = Modifier.weight(1f), onClick = onOpenApps)
     }
 }
 
 @Composable
-private fun StatTile(
-    value: Int,
-    label: String,
-    modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
-) {
+private fun StatTile(value: Int, label: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
     NotDigestCard(
-        modifier = if (onClick != null) modifier.then(Modifier) else modifier,
+        modifier = if (onClick != null) modifier.clickable(onClick = onClick) else modifier,
         contentPadding = PaddingValues(Spacing.lg),
     ) {
         AnimatedCount(
@@ -266,11 +230,7 @@ private fun RecommendationCard(
                 size = 40.dp,
             )
             Column(Modifier.weight(1f)) {
-                Text(
-                    recommendation.appName,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                Text(recommendation.appName, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
                 Text(
                     "${recommendation.weeklyCount} notifications this week",
                     style = MaterialTheme.typography.bodySmall,

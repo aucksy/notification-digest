@@ -41,7 +41,7 @@ class PreferencesRepositoryImpl @Inject constructor(
             retentionDays = p[Keys.RETENTION] ?: Constants.DEFAULT_RETENTION_DAYS,
             hapticsEnabled = p[Keys.HAPTICS] ?: true,
             recommendationsEnabled = p[Keys.RECOMMENDATIONS] ?: true,
-            statusNotificationEnabled = p[Keys.STATUS_NOTIF] ?: true,
+            statusNotificationEnabled = p[Keys.STATUS_NOTIF] ?: false,
             onboardingComplete = p[Keys.ONBOARDING] ?: false,
         )
     }

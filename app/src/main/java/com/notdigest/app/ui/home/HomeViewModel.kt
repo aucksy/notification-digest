@@ -64,7 +64,7 @@ class HomeViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
-    fun deliverNow() {
+    fun seeNow() {
         viewModelScope.launch {
             isDelivering.value = true
             val result = runCatching { deliverDigestUseCase(DigestType.MANUAL) }.getOrNull()
@@ -72,8 +72,8 @@ class HomeViewModel @Inject constructor(
             eventChannel.send(
                 when (result) {
                     is DeliverResult.Delivered ->
-                        "Delivered ${result.notificationCount} notifications from ${result.appCount} apps"
-                    else -> "Nothing waiting to deliver"
+                        "${result.notificationCount} notifications added to your inbox"
+                    else -> "Nothing to show yet"
                 },
             )
         }

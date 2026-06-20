@@ -10,6 +10,7 @@ data class UserPreferences(
     val retentionDays: Int = 30,
     val hapticsEnabled: Boolean = true,
     val recommendationsEnabled: Boolean = true,
-    val statusNotificationEnabled: Boolean = true,
+    // Off by default: users shouldn't be reminded of collected notifications until delivery time.
+    val statusNotificationEnabled: Boolean = false,
     val onboardingComplete: Boolean = false,
 )

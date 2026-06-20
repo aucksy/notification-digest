@@ -13,12 +13,12 @@
 
     <!-- Digest notification -->
     <string name="digest_ready_title">Your digest is ready</string>
-    <string name="digest_action_review">Review</string>
+    <string name="digest_action_review">Open</string>
     <string name="digest_action_dismiss">Dismiss</string>
 
     <!-- Status notification -->
-    <string name="status_collecting_sub">Tap to review, or wait for the next digest</string>
-    <string name="status_action_deliver">Deliver now</string>
+    <string name="status_collecting_sub">Tap to see them now</string>
+    <string name="status_action_deliver">See now</string>
 
     <!-- Content descriptions -->
     <string name="cd_app_icon">App icon</string>

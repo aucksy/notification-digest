@@ -1,0 +1,18 @@
+{
+  // This machine has limited RAM. Keep the editor from auto-running Gradle / Java builds in the
+  // background (that's what froze the system). All real builds happen in the cloud via GitHub
+  // Actions (.github/workflows/android-release.yml). You can still edit code freely.
+  "java.import.gradle.enabled": false,
+  "java.import.gradle.offline.enabled": true,
+  "java.configuration.updateBuildConfiguration": "disabled",
+  "java.autobuild.enabled": false,
+  "java.maxConcurrentBuilds": 1,
+  "java.silentNotification": true,
+  "gradle.nestedProjects": false,
+  "gradle.autoDetect": "off",
+  "files.watcherExclude": {
+    "**/build/**": true,
+    "**/.gradle/**": true,
+    "**/.cxx/**": true
+  }
+}

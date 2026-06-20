@@ -1,0 +1,21 @@
+*.iml
+.gradle/
+/local.properties
+/.idea
+.DS_Store
+# Build outputs in any module (root, app, …)
+build/
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+*.keystore
+*.jks
+!debug.keystore
+# Release signing secrets — never commit these.
+keystore.properties
+/app/release
+*.apk
+*.aab
+# Play Store service account (for automated publishing)
+play-service-account.json

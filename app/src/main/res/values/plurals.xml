@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="digest_summary">
+        <item quantity="one">%1$d notification · %2$d apps</item>
+        <item quantity="other">%1$d notifications · %2$d apps</item>
+    </plurals>
+
+    <plurals name="status_collecting">
+        <item quantity="one">%1$d notification waiting</item>
+        <item quantity="other">%1$d notifications waiting</item>
+    </plurals>
+</resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Brand mark: a soft, rounded "digest tray" used on the splash and onboarding. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFB7A8F2"
+        android:pathData="M30,34h48a8,8 0 0 1 8,8v6H22v-6a8,8 0 0 1 8,-8z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M22,54h64v18a8,8 0 0 1 -8,8H30a8,8 0 0 1 -8,-8z" />
+    <path
+        android:fillColor="#FF6E56CF"
+        android:pathData="M22,54h18a14,14 0 0 0 28,0h18v4a8,8 0 0 1 -8,8H30a8,8 0 0 1 -8,-8z" />
+</vector>

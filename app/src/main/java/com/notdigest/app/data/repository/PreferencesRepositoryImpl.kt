@@ -1,0 +1,92 @@
+package com.notdigest.app.data.repository
+
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import com.notdigest.app.core.Constants
+import com.notdigest.app.domain.model.ThemeMode
+import com.notdigest.app.domain.model.UserPreferences
+import com.notdigest.app.domain.repository.PreferencesRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class PreferencesRepositoryImpl @Inject constructor(
+    private val dataStore: DataStore<Preferences>,
+) : PreferencesRepository {
+
+    private object Keys {
+        val THEME = stringPreferencesKey("theme_mode")
+        val DYNAMIC = booleanPreferencesKey("dynamic_color")
+        val RETENTION = intPreferencesKey("retention_days")
+        val HAPTICS = booleanPreferencesKey("haptics_enabled")
+        val RECOMMENDATIONS = booleanPreferencesKey("recommendations_enabled")
+        val STATUS_NOTIF = booleanPreferencesKey("status_notification_enabled")
+        val ONBOARDING = booleanPreferencesKey("onboarding_complete")
+        val CONFIG_RESTORED = booleanPreferencesKey("config_restored")
+        val CRITICAL_DEFAULTS_VERSION = intPreferencesKey("critical_defaults_version")
+    }
+
+    override val preferences: Flow<UserPreferences> = dataStore.data.map { p ->
+        UserPreferences(
+            themeMode = p[Keys.THEME]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
+                ?: ThemeMode.SYSTEM,
+            dynamicColor = p[Keys.DYNAMIC] ?: true,
+            retentionDays = p[Keys.RETENTION] ?: Constants.DEFAULT_RETENTION_DAYS,
+            hapticsEnabled = p[Keys.HAPTICS] ?: true,
+            recommendationsEnabled = p[Keys.RECOMMENDATIONS] ?: true,
+            statusNotificationEnabled = p[Keys.STATUS_NOTIF] ?: true,
+            onboardingComplete = p[Keys.ONBOARDING] ?: false,
+        )
+    }
+
+    override suspend fun snapshot(): UserPreferences = preferences.first()
+
+    override suspend fun setThemeMode(mode: ThemeMode) {
+        dataStore.edit { it[Keys.THEME] = mode.name }
+    }
+
+    override suspend fun setDynamicColor(enabled: Boolean) {
+        dataStore.edit { it[Keys.DYNAMIC] = enabled }
+    }
+
+    override suspend fun setRetentionDays(days: Int) {
+        dataStore.edit { it[Keys.RETENTION] = days }
+    }
+
+    override suspend fun setHapticsEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.HAPTICS] = enabled }
+    }
+
+    override suspend fun setRecommendationsEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.RECOMMENDATIONS] = enabled }
+    }
+
+    override suspend fun setStatusNotificationEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.STATUS_NOTIF] = enabled }
+    }
+
+    override suspend fun setOnboardingComplete(complete: Boolean) {
+        dataStore.edit { it[Keys.ONBOARDING] = complete }
+    }
+
+    override suspend fun isConfigRestored(): Boolean =
+        dataStore.data.map { it[Keys.CONFIG_RESTORED] ?: false }.first()
+
+    override suspend fun setConfigRestored(restored: Boolean) {
+        dataStore.edit { it[Keys.CONFIG_RESTORED] = restored }
+    }
+
+    override suspend fun criticalDefaultsVersion(): Int =
+        dataStore.data.map { it[Keys.CRITICAL_DEFAULTS_VERSION] ?: 0 }.first()
+
+    override suspend fun setCriticalDefaultsVersion(version: Int) {
+        dataStore.edit { it[Keys.CRITICAL_DEFAULTS_VERSION] = version }
+    }
+}

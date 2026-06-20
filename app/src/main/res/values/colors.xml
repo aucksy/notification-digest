@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window background used for the brief frame before Compose draws. -->
+    <color name="app_background">#FFF8F7FB</color>
+    <color name="splash_background">#FF111016</color>
+    <color name="ic_launcher_background">#FF6E56CF</color>
+</resources>

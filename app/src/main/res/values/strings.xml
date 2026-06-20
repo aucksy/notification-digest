@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Notification Digest</string>
+    <string name="notification_access_label">Notification Digest — collect &amp; batch</string>
+
+    <!-- Notification channels -->
+    <string name="channel_digest_name">Digest deliveries</string>
+    <string name="channel_digest_desc">Scheduled batches of your collected notifications.</string>
+    <string name="channel_recommendation_name">Smart suggestions</string>
+    <string name="channel_recommendation_desc">Occasional, dismissible tips about noisy apps.</string>
+    <string name="channel_status_name">Collection status</string>
+    <string name="channel_status_desc">A quiet, ongoing status while notifications are being collected.</string>
+
+    <!-- Digest notification -->
+    <string name="digest_ready_title">Your digest is ready</string>
+    <string name="digest_action_review">Review</string>
+    <string name="digest_action_dismiss">Dismiss</string>
+
+    <!-- Status notification -->
+    <string name="status_collecting_sub">Tap to review, or wait for the next digest</string>
+    <string name="status_action_deliver">Deliver now</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_app_icon">App icon</string>
+    <string name="cd_back">Back</string>
+    <string name="cd_search">Search</string>
+    <string name="cd_more">More options</string>
+</resources>

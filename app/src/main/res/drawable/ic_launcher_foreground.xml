@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive-icon foreground. Drawn inside the 72x72 safe zone of the 108x108 canvas. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFEDE7FF"
+        android:pathData="M36,40h36a6,6 0 0 1 6,6v4H30v-4a6,6 0 0 1 6,-6z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M30,54h48v14a6,6 0 0 1 -6,6H36a6,6 0 0 1 -6,-6z" />
+    <path
+        android:fillColor="#FF4B3BA6"
+        android:pathData="M30,54h14a10,10 0 0 0 20,0h14v3a6,6 0 0 1 -6,6H36a6,6 0 0 1 -6,-6z" />
+</vector>

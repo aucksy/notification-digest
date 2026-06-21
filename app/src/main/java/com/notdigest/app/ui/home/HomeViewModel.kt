@@ -15,6 +15,8 @@ import com.notdigest.app.domain.repository.StatsRepository
 import com.notdigest.app.domain.usecase.ComputeNextDigestTimeUseCase
 import com.notdigest.app.domain.usecase.DeliverDigestUseCase
 import com.notdigest.app.domain.usecase.DeliverResult
+import com.notdigest.app.ui.apps.AppsFilter
+import com.notdigest.app.ui.apps.AppsFilterRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,6 +46,7 @@ class HomeViewModel @Inject constructor(
     private val deliverDigestUseCase: DeliverDigestUseCase,
     private val computeNextDigestTime: ComputeNextDigestTimeUseCase,
     private val time: TimeProvider,
+    private val appsFilterRequest: AppsFilterRequest,
 ) : ViewModel() {
 
     private val isDelivering = MutableStateFlow(false)
@@ -78,6 +81,9 @@ class HomeViewModel @Inject constructor(
             )
         }
     }
+
+    /** Ask the Apps tab to open showing only Real-Time apps (used by the "Real-Time apps" stat tile). */
+    fun openRealtimeApps() { appsFilterRequest.request(AppsFilter.REALTIME) }
 
     fun applyRecommendation(recommendation: AppRecommendation) {
         viewModelScope.launch {

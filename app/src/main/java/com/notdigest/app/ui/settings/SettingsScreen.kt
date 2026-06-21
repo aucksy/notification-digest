@@ -3,6 +3,8 @@ package com.notdigest.app.ui.settings
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -63,6 +65,13 @@ fun SettingsScreen(
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         accessGranted = NotificationAccessState.isGranted(context)
     }
+
+    val createBackupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri -> uri?.let { viewModel.backupToFile(it) } }
+    val openBackupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let { viewModel.restoreFromFile(it) } }
 
     LaunchedEffect(Unit) { viewModel.events.collect { snackbarHostState.showSnackbar(it) } }
     LaunchedEffect(Unit) {
@@ -157,6 +166,28 @@ fun SettingsScreen(
                     subtitle = "Subtle feedback on key actions",
                     checked = prefs.hapticsEnabled,
                     onCheckedChange = viewModel::setHaptics,
+                )
+            }
+
+            // --- Backup & restore ---
+            SettingsGroup(title = "Backup & restore") {
+                NotDigestCard {
+                    Text("Auto-backup to Google", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                    Text(
+                        "Your app classifications, schedules and settings (never notification content) ride along with Android's system backup, so they come back automatically when you reinstall on the same Google account.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                NavRow(
+                    title = "Back up to a file",
+                    subtitle = "Save a copy you can keep or move to another phone",
+                    onClick = { createBackupLauncher.launch(viewModel.backupFileName) },
+                )
+                NavRow(
+                    title = "Restore from a file",
+                    subtitle = "Import classifications & settings from a backup file",
+                    onClick = { openBackupLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                 )
             }
 

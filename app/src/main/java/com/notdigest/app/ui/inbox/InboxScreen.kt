@@ -69,7 +69,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.notdigest.app.core.util.TimeFormatter
 import com.notdigest.app.domain.model.AppNotification
 import com.notdigest.app.ui.LocalHapticsEnabled
-import com.notdigest.app.ui.LocalIs24Hour
 import com.notdigest.app.ui.components.AppIcon
 import com.notdigest.app.ui.components.CountPill
 import com.notdigest.app.ui.components.EmptyState
@@ -89,7 +88,6 @@ fun InboxScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val is24Hour = LocalIs24Hour.current
     val haptic = LocalHapticFeedback.current
     val hapticsOn = LocalHapticsEnabled.current
     val buzz = { if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress) }
@@ -190,11 +188,10 @@ fun InboxScreen(
                         }
                     }
                     state.groups.forEach { group ->
-                        item(key = "header-${group.digestId}") {
+                        item(key = "header-${group.key}") {
                             GroupHeader(
                                 group = group,
-                                is24Hour = is24Hour,
-                                onToggle = { viewModel.setGroupExpanded(group.digestId, !group.expanded) },
+                                onToggle = { viewModel.setGroupExpanded(group.key, !group.expanded) },
                             )
                         }
                         if (group.expanded) {
@@ -280,7 +277,8 @@ private fun ArchivedBanner(archivedCount: Int, isDelivering: Boolean, onSeeNow: 
 }
 
 @Composable
-private fun GroupHeader(group: DeliveryGroup, is24Hour: Boolean, onToggle: () -> Unit) {
+private fun GroupHeader(group: DaySection, onToggle: () -> Unit) {
+    val today = remember { LocalDate.now() }
     val rotation by animateFloatAsState(if (group.expanded) 180f else 0f, label = "chevron")
     Row(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(vertical = Spacing.sm, horizontal = Spacing.xs),
@@ -288,13 +286,11 @@ private fun GroupHeader(group: DeliveryGroup, is24Hour: Boolean, onToggle: () ->
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         Text(
-            TimeFormatter.deliveredLabel(group.createdAt, System.currentTimeMillis(), is24Hour),
-            style = MaterialTheme.typography.titleSmall,
+            TimeFormatter.dateChip(group.date, today),
+            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground,
+            fontWeight = FontWeight.SemiBold,
         )
-        if (group.isLatest) {
-            GroupBadge("Latest", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary)
-        }
         Spacer(Modifier.weight(1f))
         CountPill(text = group.count.toString())
         Icon(
@@ -303,15 +299,6 @@ private fun GroupHeader(group: DeliveryGroup, is24Hour: Boolean, onToggle: () ->
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(22.dp).rotate(rotation),
         )
-    }
-}
-
-@Composable
-private fun GroupBadge(text: String, container: Color, content: Color) {
-    Box(
-        modifier = Modifier.clip(RoundedCornerShape(50)).background(container).padding(horizontal = Spacing.sm, vertical = 1.dp),
-    ) {
-        Text(text, style = MaterialTheme.typography.labelSmall, color = content)
     }
 }
 

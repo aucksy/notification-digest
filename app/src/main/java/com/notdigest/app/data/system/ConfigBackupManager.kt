@@ -2,6 +2,7 @@ package com.notdigest.app.data.system
 
 import android.app.backup.BackupManager
 import android.content.Context
+import android.net.Uri
 import com.notdigest.app.core.Constants
 import com.notdigest.app.di.IoDispatcher
 import com.notdigest.app.domain.model.AppRule
@@ -18,6 +19,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -66,35 +68,76 @@ class ConfigBackupManager @Inject constructor(
     }
 
     private fun write(snapshot: Snapshot) {
-        val json = JSONObject().apply {
-            put("version", SNAPSHOT_VERSION)
-            put("rules", JSONArray().apply {
-                snapshot.rules.forEach { rule ->
-                    put(
-                        JSONObject()
-                            .put("pkg", rule.packageName)
-                            .put("name", rule.appName)
-                            .put("mode", rule.mode.name)
-                            .put("system", rule.isSystemApp),
-                    )
-                }
-            })
-            put("schedules", JSONArray().apply {
-                snapshot.schedules.forEach { s ->
-                    put(
-                        JSONObject()
-                            .put("label", s.label)
-                            .put("minute", s.minuteOfDay)
-                            .put("enabled", s.enabled)
-                            .put("order", s.sortOrder),
-                    )
-                }
-            })
-            put("prefs", snapshot.prefs.toJson())
-        }
-        file.writeText(json.toString())
+        file.writeText(buildJson(snapshot).toString())
         // Hint the framework to back up sooner than its usual ~daily cadence.
         backupManager.dataChanged()
+    }
+
+    private fun buildJson(snapshot: Snapshot): JSONObject = JSONObject().apply {
+        put("version", SNAPSHOT_VERSION)
+        put("rules", JSONArray().apply {
+            snapshot.rules.forEach { rule ->
+                put(
+                    JSONObject()
+                        .put("pkg", rule.packageName)
+                        .put("name", rule.appName)
+                        .put("mode", rule.mode.name)
+                        .put("system", rule.isSystemApp),
+                )
+            }
+        })
+        put("schedules", JSONArray().apply {
+            snapshot.schedules.forEach { s ->
+                put(
+                    JSONObject()
+                        .put("label", s.label)
+                        .put("minute", s.minuteOfDay)
+                        .put("enabled", s.enabled)
+                        .put("order", s.sortOrder),
+                )
+            }
+        })
+        put("prefs", snapshot.prefs.toJson())
+    }
+
+    /** Serialize the *current* configuration to a pretty JSON string for a user-chosen file backup. */
+    suspend fun exportJson(): String = withContext(io) {
+        val snapshot = Snapshot(
+            rules = appRuleRepository.observeRules().first(),
+            schedules = scheduleRepository.snapshot(),
+            prefs = preferencesRepository.preferences.first(),
+        )
+        buildJson(snapshot).toString(2)
+    }
+
+    /** Write the current configuration to a user-picked document (SAF Uri). */
+    suspend fun exportToUri(uri: Uri): Boolean = withContext(io) {
+        runCatching {
+            val json = exportJson()
+            context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) } ?: return@runCatching false
+            true
+        }.getOrDefault(false)
+    }
+
+    /** Read a configuration from a user-picked document (SAF Uri) and apply it. */
+    suspend fun importFromUri(uri: Uri): Boolean = withContext(io) {
+        val text = runCatching {
+            context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+        }.getOrNull() ?: return@withContext false
+        importJson(text)
+    }
+
+    /** Apply a configuration JSON the user imported from a file. Returns false if it isn't a valid backup. */
+    suspend fun importJson(text: String): Boolean = withContext(io) {
+        val json = runCatching { JSONObject(text) }.getOrNull() ?: return@withContext false
+        if (!json.has("rules") && !json.has("prefs")) return@withContext false
+        applyJson(json)
+        // Keep the internal snapshot (and therefore Auto Backup) in sync with the imported config.
+        runCatching {
+            file.writeText(json.toString())
+            backupManager.dataChanged()
+        }
+        true
     }
 
     /**
@@ -107,7 +150,11 @@ class ConfigBackupManager @Inject constructor(
         if (!snapshotFile.exists()) return@withContext false
         val json = runCatching { JSONObject(snapshotFile.readText()) }.getOrNull()
             ?: return@withContext false
+        applyJson(json)
+        true
+    }
 
+    private suspend fun applyJson(json: JSONObject) {
         json.optJSONArray("rules")?.let { arr ->
             for (i in 0 until arr.length()) {
                 val o = arr.optJSONObject(i) ?: continue
@@ -143,7 +190,6 @@ class ConfigBackupManager @Inject constructor(
             preferencesRepository.setStatusNotificationEnabled(p.optBoolean("status", true))
             preferencesRepository.setOnboardingComplete(p.optBoolean("onboarding", false))
         }
-        true
     }
 
     private fun UserPreferences.toJson(): JSONObject = JSONObject()

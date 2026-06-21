@@ -91,7 +91,15 @@ fun HomeScreen(
                 )
             }
 
-            item { StatsRow(stats = state.stats, onOpenApps = onOpenApps) }
+            item {
+                StatsRow(
+                    stats = state.stats,
+                    onOpenRealtimeApps = {
+                        viewModel.openRealtimeApps()
+                        onOpenApps()
+                    },
+                )
+            }
 
             if (state.recommendations.isNotEmpty()) {
                 item { SectionHeader(title = "Suggestions") }
@@ -191,11 +199,11 @@ private fun HeroCard(
 }
 
 @Composable
-private fun StatsRow(stats: NotificationStats, onOpenApps: () -> Unit) {
+private fun StatsRow(stats: NotificationStats, onOpenRealtimeApps: () -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md), modifier = Modifier.fillMaxWidth()) {
         StatTile(value = stats.batchedToday, label = "Archived today", modifier = Modifier.weight(1f))
         StatTile(value = stats.avoidedLast7Days, label = "Avoided · 7 days", modifier = Modifier.weight(1f))
-        StatTile(value = stats.realtimeAppCount, label = "Real-Time apps", modifier = Modifier.weight(1f), onClick = onOpenApps)
+        StatTile(value = stats.realtimeAppCount, label = "Real-Time apps", modifier = Modifier.weight(1f), onClick = onOpenRealtimeApps)
     }
 }
 

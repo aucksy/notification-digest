@@ -1,7 +1,9 @@
 package com.notdigest.app.ui.settings
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.notdigest.app.data.system.ConfigBackupManager
 import com.notdigest.app.domain.model.ThemeMode
 import com.notdigest.app.domain.model.UserPreferences
 import com.notdigest.app.domain.repository.DigestRepository
@@ -22,7 +24,11 @@ class SettingsViewModel @Inject constructor(
     private val notificationRepository: NotificationRepository,
     private val digestRepository: DigestRepository,
     private val digestNotifier: DigestNotifier,
+    private val configBackupManager: ConfigBackupManager,
 ) : ViewModel() {
+
+    /** Suggested filename when the user saves a manual backup. */
+    val backupFileName: String get() = "notification-digest-backup.json"
 
     val preferences = preferencesRepository.preferences
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserPreferences())
@@ -41,6 +47,22 @@ class SettingsViewModel @Inject constructor(
     fun setStatusNotification(enabled: Boolean) = launch {
         preferencesRepository.setStatusNotificationEnabled(enabled)
         if (!enabled) digestNotifier.clearCollectingStatus()
+    }
+
+    /** Save app classifications, schedules and settings (no notification content) to a chosen file. */
+    fun backupToFile(uri: Uri) {
+        launch {
+            val ok = configBackupManager.exportToUri(uri)
+            eventChannel.send(if (ok) "Backup saved to file" else "Couldn't save the backup file")
+        }
+    }
+
+    /** Restore app classifications, schedules and settings from a chosen backup file. */
+    fun restoreFromFile(uri: Uri) {
+        launch {
+            val ok = configBackupManager.importFromUri(uri)
+            eventChannel.send(if (ok) "App classifications & settings restored" else "That file isn't a valid backup")
+        }
     }
 
     fun clearAllData() {

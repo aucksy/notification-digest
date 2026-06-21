@@ -31,21 +31,20 @@ data class AppFilterOption(val packageName: String, val appName: String, val cou
 /** A transient message for the snackbar. When [undo] is non-null, an Undo action is shown. */
 data class InboxMessage(val text: String, val undo: (suspend () -> Unit)? = null)
 
-/** One delivery batch — a scheduled or manual "See All Notifications Now" — shown as a collapsible group. */
-data class DeliveryGroup(
-    val digestId: Long,
-    val createdAt: Long,
-    val type: DigestType,
-    val isLatest: Boolean,
+/** One day's worth of delivered notifications, shown as a collapsible section ("Today", "Yesterday", …). */
+data class DaySection(
+    val date: LocalDate,
     val defaultExpanded: Boolean,
     val expanded: Boolean,
     val notifications: List<AppNotification>,
 ) {
     val count: Int get() = notifications.size
+    /** Stable key for expand/collapse overrides. */
+    val key: Long get() = date.toEpochDay()
 }
 
 data class InboxUiState(
-    val groups: List<DeliveryGroup> = emptyList(),
+    val groups: List<DaySection> = emptyList(),
     val apps: List<AppFilterOption> = emptyList(),
     val availableDates: List<LocalDate> = emptyList(),
     val query: String = "",
@@ -87,7 +86,7 @@ class InboxViewModel @Inject constructor(
     }
 
     private data class Core(
-        val groups: List<DeliveryGroup>,
+        val sections: List<DaySection>,
         val apps: List<AppFilterOption>,
         val dates: List<LocalDate>,
         val query: String,
@@ -111,43 +110,33 @@ class InboxViewModel @Inject constructor(
         val deduped = list.distinctBy { listOf(it.digestId, it.packageName, it.title, it.text) }
         val byApp = if (filter == null) deduped else deduped.filter { it.packageName == filter }
 
-        var groups = byApp
-            .filter { it.digestId != null }
-            .groupBy { it.digestId!! }
-            .map { (digestId, notifs) ->
-                val digest = digestById[digestId]
-                val createdAt = digest?.createdAt ?: notifs.maxOf { it.postedAt }
-                val day = localDateOf(createdAt)
-                DeliveryGroup(
-                    digestId = digestId,
-                    createdAt = createdAt,
-                    type = digest?.type ?: DigestType.SCHEDULED,
-                    isLatest = false,
+        // The "delivery day" is when its digest was created; fall back to the notification's own time.
+        fun deliveryDay(n: AppNotification): LocalDate =
+            localDateOf(n.digestId?.let { digestById[it]?.createdAt } ?: n.postedAt)
+
+        var sections = byApp
+            .groupBy { deliveryDay(it) }
+            .map { (day, notifs) ->
+                DaySection(
+                    date = day,
                     // Today and Yesterday open by default; anything older starts collapsed.
                     defaultExpanded = day == today || day == yesterday,
                     expanded = false,
                     notifications = notifs.sortedByDescending { it.postedAt },
                 )
             }
-            .sortedByDescending { it.createdAt }
+            .sortedByDescending { it.date }
 
-        if (date != null) groups = groups.filter { localDateOf(it.createdAt) == date }
-        groups = groups.mapIndexed { index, g -> g.copy(isLatest = index == 0 && date == null) }
+        if (date != null) sections = sections.filter { it.date == date }
 
         val apps = deduped
             .groupBy { it.packageName }
             .map { (pkg, items) -> AppFilterOption(pkg, items.first().appName, items.size) }
             .sortedByDescending { it.count }
 
-        val dates = deduped
-            .mapNotNull { it.digestId }
-            .toSet()
-            .mapNotNull { digestById[it]?.createdAt }
-            .map { localDateOf(it) }
-            .distinct()
-            .sortedDescending()
+        val dates = deduped.map { deliveryDay(it) }.distinct().sortedDescending()
 
-        Core(groups, apps, dates, q, filter, date, deduped.size)
+        Core(sections, apps, dates, q, filter, date, deduped.size)
     }
 
     val uiState = combine(
@@ -157,10 +146,10 @@ class InboxViewModel @Inject constructor(
         expandOverrides,
         notificationRepository.observePendingCount(),
     ) { c, sel, delivering, overrides, archived ->
-        val groups = c.groups.map { g -> g.copy(expanded = overrides[g.digestId] ?: g.defaultExpanded) }
-        val visibleIds = c.groups.flatMap { it.notifications.map { n -> n.id } }.toSet()
+        val sections = c.sections.map { s -> s.copy(expanded = overrides[s.key] ?: s.defaultExpanded) }
+        val visibleIds = c.sections.flatMap { it.notifications.map { n -> n.id } }.toSet()
         InboxUiState(
-            groups = groups,
+            groups = sections,
             apps = c.apps,
             availableDates = c.dates,
             query = c.query,
@@ -184,8 +173,8 @@ class InboxViewModel @Inject constructor(
 
     fun setSelectedDate(date: LocalDate?) { selectedDate.value = date }
 
-    fun setGroupExpanded(digestId: Long, expanded: Boolean) {
-        expandOverrides.value = expandOverrides.value + (digestId to expanded)
+    fun setGroupExpanded(key: Long, expanded: Boolean) {
+        expandOverrides.value = expandOverrides.value + (key to expanded)
     }
 
     fun toggleSelection(id: Long) {

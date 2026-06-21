@@ -44,6 +44,7 @@ class AppsViewModel @Inject constructor(
     private val installedAppsRepository: InstalledAppsRepository,
     private val appRuleRepository: AppRuleRepository,
     private val syncRules: SyncInstalledAppRulesUseCase,
+    private val filterRequest: AppsFilterRequest,
 ) : ViewModel() {
 
     private val installed = MutableStateFlow<List<InstalledApp>>(emptyList())
@@ -97,7 +98,18 @@ class AppsViewModel @Inject constructor(
         state.copy(loading = isLoading && state.apps.isEmpty())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppsUiState())
 
-    init { refresh() }
+    init {
+        refresh()
+        // Honor a pre-filter requested by another screen (e.g. the Home "Real-Time apps" tile).
+        viewModelScope.launch {
+            filterRequest.pending.collect { requested ->
+                if (requested != null) {
+                    filter.value = requested
+                    filterRequest.consume()
+                }
+            }
+        }
+    }
 
     fun refresh() {
         viewModelScope.launch {

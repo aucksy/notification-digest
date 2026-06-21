@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.notdigest.app.data.system.ConfigBackupManager
+import com.notdigest.app.data.system.DriveBackupManager
 import com.notdigest.app.di.ApplicationScope
 import com.notdigest.app.domain.system.DigestScheduler
 import com.notdigest.app.domain.usecase.InitializeAppDataUseCase
@@ -27,6 +28,7 @@ class NotDigestApp : Application(), Configuration.Provider {
     @Inject lateinit var scheduler: DigestScheduler
     @Inject lateinit var initializeAppData: InitializeAppDataUseCase
     @Inject lateinit var configBackup: ConfigBackupManager
+    @Inject lateinit var driveBackup: DriveBackupManager
 
     @Inject @ApplicationScope lateinit var appScope: CoroutineScope
 
@@ -40,6 +42,7 @@ class NotDigestApp : Application(), Configuration.Provider {
             // so we never overwrite a freshly restored file.
             runCatching { initializeAppData() }
             configBackup.start(appScope)
+            driveBackup.start(appScope)
         }
     }
 

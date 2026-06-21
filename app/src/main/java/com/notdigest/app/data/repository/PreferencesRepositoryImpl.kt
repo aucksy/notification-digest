@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.notdigest.app.core.Constants
 import com.notdigest.app.domain.model.ThemeMode
@@ -31,6 +32,8 @@ class PreferencesRepositoryImpl @Inject constructor(
         val ONBOARDING = booleanPreferencesKey("onboarding_complete")
         val CONFIG_RESTORED = booleanPreferencesKey("config_restored")
         val CRITICAL_DEFAULTS_VERSION = intPreferencesKey("critical_defaults_version")
+        val DRIVE_AUTO = booleanPreferencesKey("drive_auto_backup")
+        val DRIVE_LAST_BACKUP = longPreferencesKey("drive_last_backup_at")
     }
 
     override val preferences: Flow<UserPreferences> = dataStore.data.map { p ->
@@ -88,5 +91,19 @@ class PreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setCriticalDefaultsVersion(version: Int) {
         dataStore.edit { it[Keys.CRITICAL_DEFAULTS_VERSION] = version }
+    }
+
+    override val driveAutoBackup: Flow<Boolean> =
+        dataStore.data.map { it[Keys.DRIVE_AUTO] ?: false }
+
+    override suspend fun setDriveAutoBackup(enabled: Boolean) {
+        dataStore.edit { it[Keys.DRIVE_AUTO] = enabled }
+    }
+
+    override val driveLastBackupAt: Flow<Long> =
+        dataStore.data.map { it[Keys.DRIVE_LAST_BACKUP] ?: 0L }
+
+    override suspend fun setDriveLastBackupAt(millis: Long) {
+        dataStore.edit { it[Keys.DRIVE_LAST_BACKUP] = millis }
     }
 }

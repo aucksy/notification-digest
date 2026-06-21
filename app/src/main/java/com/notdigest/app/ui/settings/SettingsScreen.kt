@@ -10,17 +10,26 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -38,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -45,6 +55,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.notdigest.app.BuildConfig
 import com.notdigest.app.core.Constants
+import com.notdigest.app.core.util.TimeFormatter
 import com.notdigest.app.domain.model.ThemeMode
 import com.notdigest.app.service.NotificationAccessState
 import com.notdigest.app.ui.components.NotDigestCard
@@ -72,6 +83,11 @@ fun SettingsScreen(
     val openBackupLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri -> uri?.let { viewModel.restoreFromFile(it) } }
+
+    val driveState by viewModel.driveState.collectAsStateWithLifecycle()
+    val driveSignInLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result -> viewModel.onDriveSignInResult(result.data) }
 
     LaunchedEffect(Unit) { viewModel.events.collect { snackbarHostState.showSnackbar(it) } }
     LaunchedEffect(Unit) {
@@ -190,16 +206,20 @@ fun SettingsScreen(
                 )
             }
 
-            // --- Backup & restore ---
-            SettingsGroup(title = "Backup & restore") {
-                NotDigestCard {
-                    Text("Automatic Google backup", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                    Text(
-                        "Your app classifications, schedules and settings (never notification content) ride along with Android's own system backup and come back automatically when you reinstall on the same Google account. It runs by itself in the background — there's nothing to tap here. To confirm it's on, check your phone's Settings → System → Backup.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+            // --- Google Drive ---
+            if (driveState.configured) {
+                DriveSection(
+                    state = driveState,
+                    onConnect = { driveSignInLauncher.launch(viewModel.driveSignInIntent()) },
+                    onBackup = viewModel::driveBackupNow,
+                    onRestore = viewModel::driveRestore,
+                    onSignOut = viewModel::driveSignOut,
+                    onToggleAuto = viewModel::setDriveAutoBackup,
+                )
+            }
+
+            // --- Backup to a file ---
+            SettingsGroup(title = "Backup to a file") {
                 NavRow(
                     title = "Back up to a file",
                     subtitle = "Save a copy anywhere — including Google Drive — from the file picker",
@@ -290,6 +310,98 @@ private fun openNotificationSettings(context: android.content.Context) {
     val intent = Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     runCatching { context.startActivity(intent) }.onFailure {
         runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    }
+}
+
+@Composable
+private fun DriveSection(
+    state: DriveUiState,
+    onConnect: () -> Unit,
+    onBackup: () -> Unit,
+    onRestore: () -> Unit,
+    onSignOut: () -> Unit,
+    onToggleAuto: (Boolean) -> Unit,
+) {
+    val busy = state.busy != DriveBusy.NONE
+    SettingsGroup(title = "Google Drive") {
+        if (!state.connected) {
+            Text(
+                "Sign in once and Notification Digest keeps a single backup file on your Drive — your app classifications, schedules and settings, synced automatically. It can only ever see that one file, nothing else in your Drive.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(Spacing.md))
+            Button(onClick = onConnect, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                if (state.busy == DriveBusy.SIGN_IN) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                } else {
+                    Icon(Icons.Filled.Cloud, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(Spacing.sm))
+                    Text("Connect Google Drive")
+                }
+            }
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Filled.Cloud, null, tint = MaterialTheme.colorScheme.primary)
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        state.email ?: "Signed in",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        if (state.lastBackupAt > 0L) {
+                            "Last backup · ${TimeFormatter.relative(state.lastBackupAt, System.currentTimeMillis())}"
+                        } else {
+                            "Not backed up yet"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(onClick = onSignOut, enabled = !busy) { Text("Sign out") }
+            }
+            Spacer(Modifier.height(Spacing.md))
+            Button(onClick = onBackup, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                if (state.busy == DriveBusy.BACKUP) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                } else {
+                    Icon(Icons.Filled.CloudUpload, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(Spacing.sm))
+                    Text("Back up now")
+                }
+            }
+            Spacer(Modifier.height(Spacing.sm))
+            OutlinedButton(onClick = onRestore, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                if (state.busy == DriveBusy.RESTORE) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Filled.CloudDownload, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(Spacing.sm))
+                    Text("Restore from Drive")
+                }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Auto-back up", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                    Text(
+                        "Save automatically a few seconds after you change classifications, schedules or settings.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = state.autoBackup, onCheckedChange = onToggleAuto, enabled = !busy)
+            }
+        }
     }
 }
 

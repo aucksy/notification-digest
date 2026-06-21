@@ -19,6 +19,15 @@ interface PreferencesRepository {
     suspend fun setStatusNotificationEnabled(enabled: Boolean)
     suspend fun setOnboardingComplete(complete: Boolean)
 
+    // --- Google Drive backup (device/account-local — deliberately NOT part of UserPreferences, so
+    //     updating the last-backup time can't re-trigger the config backup that observes prefs). ---
+
+    val driveAutoBackup: Flow<Boolean>
+    suspend fun setDriveAutoBackup(enabled: Boolean)
+
+    val driveLastBackupAt: Flow<Long>
+    suspend fun setDriveLastBackupAt(millis: Long)
+
     // --- Internal one-time flags (not part of the user-facing settings) ---
 
     /** Whether the cloud-backup config snapshot has already been imported on this install. */

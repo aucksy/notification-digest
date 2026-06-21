@@ -33,8 +33,8 @@ android {
         applicationId = "com.notdigest.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.0.7"
+        versionCode = 9
+        versionName = "1.0.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -146,6 +146,9 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.coil.compose)
+
+    // Google Sign-In (for Google Drive backup)
+    implementation(libs.play.services.auth)
 
     // Unit testing
     testImplementation(libs.junit)

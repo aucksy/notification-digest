@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DoneAll
@@ -141,9 +142,6 @@ fun InboxScreen(
                         apps = state.apps,
                         selectedApp = state.appFilter,
                         onSelectApp = viewModel::setAppFilter,
-                        dates = state.availableDates,
-                        selectedDate = state.selectedDate,
-                        onSelectDate = viewModel::setSelectedDate,
                         horizontalPadding = Spacing.screen,
                     )
                 }
@@ -151,15 +149,13 @@ fun InboxScreen(
                     icon = Icons.Filled.Inbox,
                     title = when {
                         state.query.isNotBlank() -> "No matches"
-                        state.selectedDate != null -> "Nothing on this date"
                         state.archivedCount > 0 -> "Nothing here yet"
                         else -> "Inbox zero"
                     },
                     subtitle = when {
                         state.query.isNotBlank() -> "Try a different search."
-                        state.selectedDate != null -> "Pick another date, or tap All dates."
                         state.archivedCount > 0 -> "Tap See All Notifications Now to bring your archived ones here."
-                        else -> "Delivered notifications live here, grouped by delivery. Archived ones stay hidden until you choose to see them."
+                        else -> "Delivered notifications live here, grouped by day. Archived ones stay hidden until you choose to see them."
                     },
                     modifier = Modifier.padding(top = Spacing.xl),
                 )
@@ -180,9 +176,6 @@ fun InboxScreen(
                                 apps = state.apps,
                                 selectedApp = state.appFilter,
                                 onSelectApp = viewModel::setAppFilter,
-                                dates = state.availableDates,
-                                selectedDate = state.selectedDate,
-                                onSelectDate = viewModel::setSelectedDate,
                                 horizontalPadding = 0.dp,
                             )
                         }
@@ -255,24 +248,36 @@ private fun InboxHeader(deliveredCount: Int, onMarkAllRead: () -> Unit) {
     }
 }
 
+/** Slim, theme-tonal row (not a big card) so archived notifications can be delivered without dominating the screen. */
 @Composable
 private fun ArchivedBanner(archivedCount: Int, isDelivering: Boolean, onSeeNow: () -> Unit) {
-    NotDigestCard(modifier = Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.xs)) {
-        Text(
-            "$archivedCount archived · hidden until you choose to see them",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.size(Spacing.sm))
-        Button(onClick = onSeeNow, enabled = !isDelivering, modifier = Modifier.fillMaxWidth()) {
-            if (isDelivering) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-            } else {
-                Icon(Icons.Filled.Visibility, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.size(Spacing.sm))
-                Text("See All Notifications Now")
-            }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.screen, vertical = Spacing.xs)
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .clickable(enabled = !isDelivering, onClick = onSeeNow)
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+    ) {
+        if (isDelivering) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        } else {
+            Icon(Icons.Filled.Visibility, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(20.dp))
         }
+        Text(
+            "$archivedCount archived — tap to see all now",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
     }
 }
 
@@ -306,51 +311,20 @@ private fun GroupHeader(group: DaySection, onToggle: () -> Unit) {
     }
 }
 
-/** App + date filter chips. Rendered inside the list so they scroll away and free screen for notifications. */
+/**
+ * App filter chips, rendered inside the list so they scroll away. (Date filtering was removed — the
+ * collapsible Today / Yesterday / older day sections already organise the inbox by day, and having
+ * date *chips* on top of date *sections* was confusing.)
+ */
 @Composable
 private fun InboxFilters(
     apps: List<AppFilterOption>,
     selectedApp: String?,
     onSelectApp: (String?) -> Unit,
-    dates: List<LocalDate>,
-    selectedDate: LocalDate?,
-    onSelectDate: (LocalDate?) -> Unit,
     horizontalPadding: Dp,
 ) {
     if (apps.isNotEmpty()) {
         AppFilterChips(apps = apps, selected = selectedApp, onSelect = onSelectApp, horizontalPadding = horizontalPadding)
-    }
-    if (dates.size > 1) {
-        DateChips(dates = dates, selected = selectedDate, onSelect = onSelectDate, horizontalPadding = horizontalPadding)
-    }
-}
-
-@Composable
-private fun DateChips(
-    dates: List<LocalDate>,
-    selected: LocalDate?,
-    onSelect: (LocalDate?) -> Unit,
-    horizontalPadding: Dp = Spacing.screen,
-) {
-    val today = remember { LocalDate.now() }
-    Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = horizontalPadding, vertical = Spacing.xs),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-    ) {
-        FilterChip(
-            selected = selected == null,
-            onClick = { onSelect(null) },
-            label = { Text("All dates") },
-            shape = MaterialTheme.shapes.large,
-        )
-        dates.forEach { date ->
-            FilterChip(
-                selected = selected == date,
-                onClick = { onSelect(date) },
-                label = { Text(TimeFormatter.dateChip(date, today)) },
-                shape = MaterialTheme.shapes.large,
-            )
-        }
     }
 }
 

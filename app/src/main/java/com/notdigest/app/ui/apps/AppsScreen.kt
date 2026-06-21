@@ -40,8 +40,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -100,6 +103,12 @@ fun AppsScreen(
                     },
                     singleLine = true,
                     shape = MaterialTheme.shapes.large,
+                    // Declare it as a plain search box so the IME treats it consistently (matches
+                    // the Inbox search) instead of guessing at autofill/suggestion toolbars.
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Search,
+                    ),
                 )
                 FilterRow(selected = state.filter, onSelect = viewModel::setFilter)
                 if (state.recentlyChanged.isNotEmpty() && state.filter == AppsFilter.ALL && state.query.isBlank()) {

@@ -3,6 +3,8 @@ package com.notdigest.app.data.system
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import com.notdigest.app.domain.model.AppNotification
 import com.notdigest.app.domain.system.DeepLinkLauncher
 import com.notdigest.app.domain.system.LaunchResult
@@ -20,7 +22,8 @@ class DeepLinkLauncherImpl @Inject constructor(
      * Restores a notification's destination, best-effort:
      *  1. fire the original content [PendingIntent] (exact chat / email / thread), else
      *  2. launch the owning app, else
-     *  3. report failure so the UI can show a graceful message.
+     *  3. open the app's info page (apps with no launchable screen, e.g. Phone/Telecom), else
+     *  4. report failure so the UI can show a graceful message.
      */
     override fun open(notification: AppNotification): LaunchResult {
         pendingIntents.contentIntent(notification.sbnKey)?.let { intent ->
@@ -32,6 +35,16 @@ class DeepLinkLauncherImpl @Inject constructor(
             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             if (runCatching { context.startActivity(launch) }.isSuccess) return LaunchResult.OPENED_APP
         }
+
+        // Some notifications come from packages with no launchable activity — e.g. the Phone /
+        // Telecom "call blocked" notice. Land the user on that app's system page so the tap still
+        // does something useful rather than silently failing.
+        val settings = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", notification.packageName, null)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        if (runCatching { context.startActivity(settings) }.isSuccess) return LaunchResult.OPENED_SETTINGS
+
         return LaunchResult.FAILED
     }
 

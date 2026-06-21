@@ -62,6 +62,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -134,19 +135,20 @@ fun InboxScreen(
                     )
                 }
                 SearchField(query = state.query, onQueryChange = viewModel::onQueryChange)
-                if (state.apps.isNotEmpty()) {
-                    AppFilterChips(apps = state.apps, selected = state.appFilter, onSelect = viewModel::setAppFilter)
-                }
-                if (state.availableDates.size > 1) {
-                    DateChips(
-                        dates = state.availableDates,
-                        selected = state.selectedDate,
-                        onSelect = viewModel::setSelectedDate,
-                    )
-                }
             }
 
             if (state.isEmpty) {
+                if (!state.selectionMode) {
+                    InboxFilters(
+                        apps = state.apps,
+                        selectedApp = state.appFilter,
+                        onSelectApp = viewModel::setAppFilter,
+                        dates = state.availableDates,
+                        selectedDate = state.selectedDate,
+                        onSelectDate = viewModel::setSelectedDate,
+                        horizontalPadding = Spacing.screen,
+                    )
+                }
                 EmptyState(
                     icon = Icons.Filled.Inbox,
                     title = when {
@@ -169,11 +171,24 @@ fun InboxScreen(
                     contentPadding = PaddingValues(
                         start = Spacing.screen,
                         end = Spacing.screen,
-                        top = Spacing.sm,
+                        top = Spacing.xs,
                         bottom = contentPadding.calculateBottomPadding() + Spacing.xxxl,
                     ),
                     verticalArrangement = Arrangement.spacedBy(Spacing.xs),
                 ) {
+                    if (!state.selectionMode) {
+                        item(key = "filters") {
+                            InboxFilters(
+                                apps = state.apps,
+                                selectedApp = state.appFilter,
+                                onSelectApp = viewModel::setAppFilter,
+                                dates = state.availableDates,
+                                selectedDate = state.selectedDate,
+                                onSelectDate = viewModel::setSelectedDate,
+                                horizontalPadding = 0.dp,
+                            )
+                        }
+                    }
                     state.groups.forEach { group ->
                         item(key = "header-${group.digestId}") {
                             GroupHeader(
@@ -246,9 +261,12 @@ private fun InboxHeader(deliveredCount: Int, onMarkAllRead: () -> Unit) {
 @Composable
 private fun ArchivedBanner(archivedCount: Int, isDelivering: Boolean, onSeeNow: () -> Unit) {
     NotDigestCard(modifier = Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.xs)) {
-        Text("$archivedCount archived", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-        Text("Hidden until you choose to see them", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.size(Spacing.md))
+        Text(
+            "$archivedCount archived · hidden until you choose to see them",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.size(Spacing.sm))
         Button(onClick = onSeeNow, enabled = !isDelivering, modifier = Modifier.fillMaxWidth()) {
             if (isDelivering) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -277,9 +295,6 @@ private fun GroupHeader(group: DeliveryGroup, is24Hour: Boolean, onToggle: () ->
         if (group.isLatest) {
             GroupBadge("Latest", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary)
         }
-        if (group.isManual) {
-            GroupBadge("Manual", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
-        }
         Spacer(Modifier.weight(1f))
         CountPill(text = group.count.toString())
         Icon(
@@ -300,11 +315,35 @@ private fun GroupBadge(text: String, container: Color, content: Color) {
     }
 }
 
+/** App + date filter chips. Rendered inside the list so they scroll away and free screen for notifications. */
 @Composable
-private fun DateChips(dates: List<LocalDate>, selected: LocalDate?, onSelect: (LocalDate?) -> Unit) {
+private fun InboxFilters(
+    apps: List<AppFilterOption>,
+    selectedApp: String?,
+    onSelectApp: (String?) -> Unit,
+    dates: List<LocalDate>,
+    selectedDate: LocalDate?,
+    onSelectDate: (LocalDate?) -> Unit,
+    horizontalPadding: Dp,
+) {
+    if (apps.isNotEmpty()) {
+        AppFilterChips(apps = apps, selected = selectedApp, onSelect = onSelectApp, horizontalPadding = horizontalPadding)
+    }
+    if (dates.size > 1) {
+        DateChips(dates = dates, selected = selectedDate, onSelect = onSelectDate, horizontalPadding = horizontalPadding)
+    }
+}
+
+@Composable
+private fun DateChips(
+    dates: List<LocalDate>,
+    selected: LocalDate?,
+    onSelect: (LocalDate?) -> Unit,
+    horizontalPadding: Dp = Spacing.screen,
+) {
     val today = remember { LocalDate.now() }
     Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = Spacing.screen, vertical = Spacing.xs),
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = horizontalPadding, vertical = Spacing.xs),
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         FilterChip(
@@ -376,9 +415,14 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
 }
 
 @Composable
-private fun AppFilterChips(apps: List<AppFilterOption>, selected: String?, onSelect: (String?) -> Unit) {
+private fun AppFilterChips(
+    apps: List<AppFilterOption>,
+    selected: String?,
+    onSelect: (String?) -> Unit,
+    horizontalPadding: Dp = Spacing.screen,
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = Spacing.screen, vertical = Spacing.xs),
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = horizontalPadding, vertical = Spacing.xs),
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         apps.forEach { app ->

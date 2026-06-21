@@ -37,11 +37,11 @@ data class DeliveryGroup(
     val createdAt: Long,
     val type: DigestType,
     val isLatest: Boolean,
+    val defaultExpanded: Boolean,
     val expanded: Boolean,
     val notifications: List<AppNotification>,
 ) {
     val count: Int get() = notifications.size
-    val isManual: Boolean get() = type == DigestType.MANUAL
 }
 
 data class InboxUiState(
@@ -103,19 +103,28 @@ class InboxViewModel @Inject constructor(
         appFilter,
         selectedDate,
     ) { list, digests, q, filter, date ->
+        val today = LocalDate.now(zone)
+        val yesterday = today.minusDays(1)
         val digestById = digests.associateBy { it.id }
-        val byApp = if (filter == null) list else list.filter { it.packageName == filter }
+
+        // Collapse exact duplicates an app re-fired within a delivery (same app + title + text).
+        val deduped = list.distinctBy { listOf(it.digestId, it.packageName, it.title, it.text) }
+        val byApp = if (filter == null) deduped else deduped.filter { it.packageName == filter }
 
         var groups = byApp
             .filter { it.digestId != null }
             .groupBy { it.digestId!! }
             .map { (digestId, notifs) ->
                 val digest = digestById[digestId]
+                val createdAt = digest?.createdAt ?: notifs.maxOf { it.postedAt }
+                val day = localDateOf(createdAt)
                 DeliveryGroup(
                     digestId = digestId,
-                    createdAt = digest?.createdAt ?: notifs.maxOf { it.postedAt },
+                    createdAt = createdAt,
                     type = digest?.type ?: DigestType.SCHEDULED,
                     isLatest = false,
+                    // Today and Yesterday open by default; anything older starts collapsed.
+                    defaultExpanded = day == today || day == yesterday,
                     expanded = false,
                     notifications = notifs.sortedByDescending { it.postedAt },
                 )
@@ -125,12 +134,12 @@ class InboxViewModel @Inject constructor(
         if (date != null) groups = groups.filter { localDateOf(it.createdAt) == date }
         groups = groups.mapIndexed { index, g -> g.copy(isLatest = index == 0 && date == null) }
 
-        val apps = list
+        val apps = deduped
             .groupBy { it.packageName }
             .map { (pkg, items) -> AppFilterOption(pkg, items.first().appName, items.size) }
             .sortedByDescending { it.count }
 
-        val dates = list
+        val dates = deduped
             .mapNotNull { it.digestId }
             .toSet()
             .mapNotNull { digestById[it]?.createdAt }
@@ -138,7 +147,7 @@ class InboxViewModel @Inject constructor(
             .distinct()
             .sortedDescending()
 
-        Core(groups, apps, dates, q, filter, date, list.size)
+        Core(groups, apps, dates, q, filter, date, deduped.size)
     }
 
     val uiState = combine(
@@ -148,7 +157,7 @@ class InboxViewModel @Inject constructor(
         expandOverrides,
         notificationRepository.observePendingCount(),
     ) { c, sel, delivering, overrides, archived ->
-        val groups = c.groups.map { g -> g.copy(expanded = overrides[g.digestId] ?: g.isLatest) }
+        val groups = c.groups.map { g -> g.copy(expanded = overrides[g.digestId] ?: g.defaultExpanded) }
         val visibleIds = c.groups.flatMap { it.notifications.map { n -> n.id } }.toSet()
         InboxUiState(
             groups = groups,
@@ -259,6 +268,7 @@ class InboxViewModel @Inject constructor(
     private fun messageFor(result: LaunchResult, appName: String): String = when (result) {
         LaunchResult.DEEP_LINKED -> "Opening in $appName…"
         LaunchResult.OPENED_APP -> "Opened $appName"
+        LaunchResult.OPENED_SETTINGS -> "$appName has no screen to open — showing its app info"
         LaunchResult.FAILED -> "Couldn't open this notification"
     }
 }

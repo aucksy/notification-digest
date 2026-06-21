@@ -16,6 +16,16 @@ interface NotificationDao {
     @Query("SELECT id FROM notifications WHERE sbnKey = :key AND isDelivered = 0 LIMIT 1")
     suspend fun pendingIdByKey(key: String): Long?
 
+    /**
+     * Id of an undelivered notification with identical visible content from the same app — a
+     * duplicate the app re-fired under a *new* key (so [pendingIdByKey] wouldn't catch it).
+     */
+    @Query(
+        "SELECT id FROM notifications WHERE packageName = :pkg AND title = :title AND text = :text " +
+            "AND isDelivered = 0 LIMIT 1",
+    )
+    suspend fun pendingIdByContent(pkg: String, title: String, text: String): Long?
+
     // --- Inbox (pending == not yet delivered) ---
 
     @Query("SELECT * FROM notifications WHERE isDelivered = 0 ORDER BY postedAt DESC")

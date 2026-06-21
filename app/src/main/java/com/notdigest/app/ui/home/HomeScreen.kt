@@ -108,11 +108,11 @@ fun HomeScreen(
                 NotDigestCard {
                     EmptyState(
                         icon = Icons.Filled.DoneAll,
-                        title = if (state.stats.waitingCount == 0) "Nothing collecting" else "Collecting quietly",
+                        title = "Collecting notifications silently",
                         subtitle = if (state.stats.waitingCount == 0) {
-                            "When your Digest apps send notifications, they stay here out of sight until you tap See All Notifications Now."
+                            "Your Digest apps are being watched. New notifications wait here quietly — nothing pops up — until your next digest or you tap See All Notifications Now."
                         } else {
-                            "${state.stats.waitingCount} archived, out of sight. Tap See All Notifications Now, or they arrive at your next digest."
+                            "${state.stats.waitingCount} waiting quietly. They'll arrive at your next digest, or tap See All Notifications Now to read them anytime."
                         },
                     )
                 }

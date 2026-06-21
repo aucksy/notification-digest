@@ -43,9 +43,13 @@ class NotificationRepositoryImpl @Inject constructor(
     override suspend fun insert(notification: AppNotification): Long = dao.insert(notification.toEntity())
 
     override suspend fun upsertPending(notification: AppNotification): Long {
+        // 1. Same system key = the app updated the exact same notification in place.
         notification.sbnKey?.let { key ->
             dao.pendingIdByKey(key)?.let { existingId -> dao.delete(listOf(existingId)) }
         }
+        // 2. Identical content under a new key = a duplicate the app re-fired (Phone, Zepto, etc.).
+        dao.pendingIdByContent(notification.packageName, notification.title, notification.text)
+            ?.let { dupId -> dao.delete(listOf(dupId)) }
         return dao.insert(notification.toEntity())
     }
 

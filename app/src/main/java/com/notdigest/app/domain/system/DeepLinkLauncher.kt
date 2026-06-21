@@ -8,6 +8,8 @@ enum class LaunchResult {
     DEEP_LINKED,
     /** Couldn't restore the exact destination; opened the owning app instead. */
     OPENED_APP,
+    /** App had no launchable screen (e.g. Phone/Telecom "call blocked"); opened its app-info page. */
+    OPENED_SETTINGS,
     /** Nothing launchable was available. */
     FAILED,
 }

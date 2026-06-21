@@ -13,6 +13,7 @@ import com.notdigest.app.domain.model.UserPreferences
 import com.notdigest.app.domain.repository.AppRuleRepository
 import com.notdigest.app.domain.repository.PreferencesRepository
 import com.notdigest.app.domain.repository.ScheduleRepository
+import com.notdigest.app.domain.system.DigestScheduler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -45,6 +46,7 @@ class ConfigBackupManager @Inject constructor(
     private val appRuleRepository: AppRuleRepository,
     private val scheduleRepository: ScheduleRepository,
     private val preferencesRepository: PreferencesRepository,
+    private val digestScheduler: DigestScheduler,
     @IoDispatcher private val io: CoroutineDispatcher,
 ) {
     private val file: File get() = File(context.filesDir, FILE_NAME)
@@ -138,7 +140,10 @@ class ConfigBackupManager @Inject constructor(
     suspend fun importJson(text: String): Boolean = withContext(io) {
         val json = runCatching { JSONObject(text) }.getOrNull() ?: return@withContext false
         if (!json.has("rules") && !json.has("prefs")) return@withContext false
-        applyJson(json, replaceSchedules = true)
+        val schedulesChanged = applyJson(json, replaceSchedules = true)
+        // The pending one-time delivery was armed from the OLD schedules; re-arm it from the restored
+        // set or it would fire at the wrong (replaced) time until something else reschedules.
+        if (schedulesChanged) runCatching { digestScheduler.rescheduleNow() }
         // Keep the internal snapshot (and therefore Auto Backup) in sync with the imported config.
         runCatching {
             file.writeText(json.toString())
@@ -157,11 +162,15 @@ class ConfigBackupManager @Inject constructor(
         if (!snapshotFile.exists()) return@withContext false
         val json = runCatching { JSONObject(snapshotFile.readText()) }.getOrNull()
             ?: return@withContext false
-        applyJson(json, replaceSchedules = false)
+        val schedulesChanged = applyJson(json, replaceSchedules = false)
+        // If we seeded schedules from the backup, arm the delivery chain for them now.
+        if (schedulesChanged) runCatching { digestScheduler.rescheduleNow() }
         true
     }
 
-    private suspend fun applyJson(json: JSONObject, replaceSchedules: Boolean) {
+    /** Applies the snapshot. Returns true if the schedule set was modified (so callers can re-arm delivery). */
+    private suspend fun applyJson(json: JSONObject, replaceSchedules: Boolean): Boolean {
+        var schedulesChanged = false
         json.optJSONArray("rules")?.let { arr ->
             for (i in 0 until arr.length()) {
                 val o = arr.optJSONObject(i) ?: continue
@@ -192,6 +201,7 @@ class ConfigBackupManager @Inject constructor(
                         ),
                     )
                 }
+                schedulesChanged = true
             }
         }
 
@@ -211,6 +221,8 @@ class ConfigBackupManager @Inject constructor(
             val current = preferencesRepository.lifetimeAvoided.first()
             preferencesRepository.setLifetimeAvoided(maxOf(current, restoredLifetime))
         }
+
+        return schedulesChanged
     }
 
     private fun UserPreferences.toJson(): JSONObject = JSONObject()

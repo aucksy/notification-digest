@@ -12,7 +12,7 @@ import com.notdigest.app.domain.repository.StatsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,15 +33,6 @@ class StatsRepositoryImpl @Inject constructor(
         val realtime: Int,
     )
 
-    // Count only Real-Time apps the user can actually see on the Apps screen (installed + launchable).
-    // A restored backup, or an app later uninstalled, leaves a Real-Time rule for an app that isn't in
-    // the list — counting raw rules made the Home tile disagree with the Apps screen.
-    private val realtimeAppCount: Flow<Int> =
-        appRuleDao.observePackagesByMode(DigestMode.REALTIME.name).mapLatest { pkgs ->
-            val launchable = runCatching { installedApps.launchablePackageNames() }.getOrNull()
-            if (launchable == null) pkgs.size else pkgs.count { it in launchable }
-        }
-
     override fun observeStats(): Flow<NotificationStats> {
         val zone = time.zone()
         // Recompute the day boundary at each local midnight so "today" counters roll over even while
@@ -50,12 +41,22 @@ class StatsRepositoryImpl @Inject constructor(
             val startOfToday = today.atStartOfDay(zone).toInstant().toEpochMilli()
             val weekAgo = time.now() - SEVEN_DAYS_MS
 
+            // Snapshot the launchable apps here — once per midnight tick AND once per (re)subscription,
+            // i.e. every time Home is re-entered. PackageManager doesn't push install/uninstall events
+            // into a Room flow, so without this the Real-Time count would only react to rule edits and
+            // could disagree with the Apps screen after an uninstall. The Apps screen likewise refreshes
+            // its launchable set on navigation, so both stay consistent.
+            val launchable = runCatching { installedApps.launchablePackageNames() }.getOrNull()
+            val realtimeCount = appRuleDao.observePackagesByMode(DigestMode.REALTIME.name).map { pkgs ->
+                if (launchable == null) pkgs.size else pkgs.count { it in launchable }
+            }
+
             val partial = combine(
                 notificationDao.observePendingCount(),
                 notificationDao.observeCapturedSince(startOfToday),
                 notificationDao.observeCapturedSince(weekAgo),
                 notificationDao.observeDeliveredSince(startOfToday),
-                realtimeAppCount,
+                realtimeCount,
             ) { pending, capturedToday, capturedWeek, deliveredToday, realtime ->
                 Partial(pending, capturedToday, capturedWeek, deliveredToday, realtime)
             }

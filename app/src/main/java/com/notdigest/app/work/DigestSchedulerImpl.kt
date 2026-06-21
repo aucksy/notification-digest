@@ -6,6 +6,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.work.await
 import androidx.work.workDataOf
 import com.notdigest.app.core.Constants
 import com.notdigest.app.core.util.TimeProvider
@@ -39,7 +40,7 @@ class DigestSchedulerImpl @Inject constructor(
     private val workManager by lazy { WorkManager.getInstance(context) }
 
     override fun reschedule() {
-        scope.launch { rescheduleInternal() }
+        scope.launch { runCatching { rescheduleInternal() } }
     }
 
     override suspend fun rescheduleNow() = rescheduleInternal()
@@ -48,7 +49,12 @@ class DigestSchedulerImpl @Inject constructor(
         val schedules = scheduleRepository.snapshot()
         val next = computeNextDigestTime(schedules, time.now())
         if (next == null) {
-            workManager.cancelUniqueWork(Constants.WORK_DIGEST_DELIVERY)
+            // await(): enqueueUniqueWork/cancelUniqueWork only dispatch the real DB write to WorkManager's
+            // own executor and return immediately. Awaiting the Operation makes rescheduleNow() resume
+            // only after the next request is durably committed — so a caller (the delivery worker, or
+            // BootReceiver.goAsync) that holds its execution window open until we return has actually
+            // guaranteed the chain is re-armed, instead of racing the process being reclaimed.
+            workManager.cancelUniqueWork(Constants.WORK_DIGEST_DELIVERY).await()
             return
         }
         val delay = (next - time.now()).coerceAtLeast(0L)
@@ -61,7 +67,7 @@ class DigestSchedulerImpl @Inject constructor(
             Constants.WORK_DIGEST_DELIVERY,
             ExistingWorkPolicy.REPLACE,
             request,
-        )
+        ).await()
     }
 
     override fun ensureCleanupScheduled() {

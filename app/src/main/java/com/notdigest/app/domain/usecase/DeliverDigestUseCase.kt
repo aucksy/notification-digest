@@ -40,13 +40,16 @@ class DeliverDigestUseCase @Inject constructor(
 
         val now = time.now()
         val groups = groupNotifications(pending)
-        val digestId = digestRepository.createDigest(
+        // Create the digest and link its notifications atomically — otherwise the digest briefly exists
+        // with no linked rows, and the retention worker's deleteEmptyDigests() (running concurrently on
+        // another thread) could delete it, orphaning the notifications it's about to claim.
+        val digestId = digestRepository.createDigestWithAssignment(
             type = type,
             createdAt = now,
             notificationCount = pending.size,
             appCount = groups.size,
+            notificationIds = pending.map { it.id },
         )
-        notificationRepository.assignToDigest(pending.map { it.id }, digestId, now)
 
         if (postNotification) {
             notifier.postDigest(

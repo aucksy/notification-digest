@@ -54,6 +54,25 @@ class DigestRepositoryImpl @Inject constructor(
         ),
     )
 
+    override suspend fun createDigestWithAssignment(
+        type: DigestType,
+        createdAt: Long,
+        notificationCount: Int,
+        appCount: Int,
+        notificationIds: List<Long>,
+    ): Long = db.withTransaction {
+        val id = digestDao.insert(
+            DigestEntity(
+                createdAt = createdAt,
+                type = type.name,
+                notificationCount = notificationCount,
+                appCount = appCount,
+            ),
+        )
+        notificationDao.assignToDigest(notificationIds, id, createdAt)
+        id
+    }
+
     override suspend fun deleteDigest(id: Long) {
         db.withTransaction {
             notificationDao.deleteByDigest(id)

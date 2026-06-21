@@ -40,20 +40,6 @@ class DigestRepositoryImpl @Inject constructor(
         return DigestWithItems(digest, groupNotifications(items))
     }
 
-    override suspend fun createDigest(
-        type: DigestType,
-        createdAt: Long,
-        notificationCount: Int,
-        appCount: Int,
-    ): Long = digestDao.insert(
-        DigestEntity(
-            createdAt = createdAt,
-            type = type.name,
-            notificationCount = notificationCount,
-            appCount = appCount,
-        ),
-    )
-
     override suspend fun createDigestWithAssignment(
         type: DigestType,
         createdAt: Long,

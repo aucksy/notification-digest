@@ -37,7 +37,7 @@ class DeliverDigestUseCaseTest {
     @Test
     fun `delivers, links notifications to the new digest and posts it`() = runTest {
         coEvery { notificationRepository.pendingSnapshot() } returns listOf(notif(1, "com.a"), notif(2, "com.a"), notif(3, "com.b"))
-        coEvery { digestRepository.createDigest(any(), any(), any(), any()) } returns 42L
+        coEvery { digestRepository.createDigestWithAssignment(any(), any(), any(), any(), any()) } returns 42L
 
         val result = useCase(DigestType.MANUAL)
 
@@ -47,7 +47,8 @@ class DeliverDigestUseCaseTest {
         assertThat(result.notificationCount).isEqualTo(3)
         assertThat(result.appCount).isEqualTo(2)
 
-        coVerify { notificationRepository.assignToDigest(listOf(1L, 2L, 3L), 42L, 1_000L) }
+        // The digest header and its notification links are created atomically in one call.
+        coVerify { digestRepository.createDigestWithAssignment(DigestType.MANUAL, 1_000L, 3, 2, listOf(1L, 2L, 3L)) }
         verify { notifier.postDigest(any()) }
     }
 
@@ -58,7 +59,7 @@ class DeliverDigestUseCaseTest {
         val result = useCase(DigestType.SCHEDULED)
 
         assertThat(result).isEqualTo(DeliverResult.Empty)
-        coVerify(exactly = 0) { digestRepository.createDigest(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { digestRepository.createDigestWithAssignment(any(), any(), any(), any(), any()) }
         verify(exactly = 0) { notifier.postDigest(any()) }
     }
 }

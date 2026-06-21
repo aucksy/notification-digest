@@ -14,9 +14,6 @@ interface DigestRepository {
 
     suspend fun getDigestWithItems(id: Long): DigestWithItems?
 
-    /** Create a digest header row and return its id. Items are linked separately. */
-    suspend fun createDigest(type: DigestType, createdAt: Long, notificationCount: Int, appCount: Int): Long
-
     /**
      * Atomically create a digest header AND link its notifications in one transaction, so a digest is
      * never observable with zero linked notifications. Prevents [deleteEmptyDigests] (run by the

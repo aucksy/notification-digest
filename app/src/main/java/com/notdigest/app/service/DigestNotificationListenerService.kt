@@ -50,6 +50,23 @@ class DigestNotificationListenerService : NotificationListenerService() {
             if (!preferencesRepository.snapshot().statusNotificationEnabled) {
                 digestNotifier.clearCollectingStatus()
             }
+            // Catch up on anything that slipped through while we were dead.
+            runCatching { sweepActiveNotifications() }
+        }
+    }
+
+    /**
+     * Suppress any Digest-mode notifications that are currently showing. Aggressive OEM battery
+     * management kills this listener; notifications posted while we're dead are never intercepted and
+     * just sit in the shade (e.g. an Amazon promo in the "Silent" tray). On every (re)connect we
+     * re-scan the live notifications and tuck away the ones that should have been suppressed.
+     */
+    private suspend fun sweepActiveNotifications() {
+        val active = runCatching { activeNotifications }.getOrNull() ?: return
+        active.forEach { sbn ->
+            if (shouldIgnore(sbn)) return@forEach
+            val captured = capture(sbn) ?: return@forEach
+            runCatching { processWithLookup(captured) }
         }
     }
 

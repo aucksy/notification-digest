@@ -1,6 +1,8 @@
 package com.notdigest.app.ui.settings
 
+import android.annotation.SuppressLint
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -57,6 +59,7 @@ import com.notdigest.app.BuildConfig
 import com.notdigest.app.core.Constants
 import com.notdigest.app.core.util.TimeFormatter
 import com.notdigest.app.domain.model.ThemeMode
+import com.notdigest.app.service.BatteryOptimizationState
 import com.notdigest.app.service.NotificationAccessState
 import com.notdigest.app.ui.components.NotDigestCard
 import com.notdigest.app.ui.theme.Spacing
@@ -73,8 +76,10 @@ fun SettingsScreen(
     var showClearConfirm by remember { mutableStateOf(false) }
 
     var accessGranted by remember { mutableStateOf(NotificationAccessState.isGranted(context)) }
+    var batteryExempt by remember { mutableStateOf(BatteryOptimizationState.isIgnoring(context)) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         accessGranted = NotificationAccessState.isGranted(context)
+        batteryExempt = BatteryOptimizationState.isIgnoring(context)
     }
 
     val createBackupLauncher = rememberLauncherForActivityResult(
@@ -126,6 +131,25 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     TextButton(onClick = { openListenerSettings(context) }) { Text("Grant access") }
+                }
+            }
+
+            // --- Keep running reliably (battery optimization) ---
+            if (!batteryExempt) {
+                SettingsGroup(title = "Keep running reliably") {
+                    NotDigestCard {
+                        Text("Allow background running", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            "Your phone may stop Notification Digest in the background. When it does, notifications can slip through to your shade and tapped notifications open the app's home instead of the right screen. Allowing it to keep running fixes both.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    NavRow(
+                        title = "Allow background running",
+                        subtitle = "Exempt from battery optimization — one tap",
+                        onClick = { requestIgnoreBatteryOptimizations(context) },
+                    )
                 }
             }
 
@@ -296,6 +320,22 @@ private fun openListenerSettings(context: android.content.Context) {
     context.startActivity(
         Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
     )
+}
+
+/** One-tap system dialog to exempt the app from battery optimization; falls back to the settings list. */
+@SuppressLint("BatteryLife")
+private fun requestIgnoreBatteryOptimizations(context: android.content.Context) {
+    val request = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+        data = Uri.fromParts("package", context.packageName, null)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    runCatching { context.startActivity(request) }.onFailure {
+        runCatching {
+            context.startActivity(
+                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
+    }
 }
 
 /** Open the per-app notification settings list so the user can set a noisy app to Silent. */

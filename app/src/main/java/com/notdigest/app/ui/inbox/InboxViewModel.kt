@@ -250,7 +250,7 @@ class InboxViewModel @Inject constructor(
 
     private fun messageFor(result: LaunchResult, appName: String): String = when (result) {
         LaunchResult.DEEP_LINKED -> "Opening in $appName…"
-        LaunchResult.OPENED_APP -> "Opened $appName"
+        LaunchResult.OPENED_APP -> "Opened $appName — couldn't open the exact screen"
         LaunchResult.OPENED_SETTINGS -> "$appName has no screen to open — showing its app info"
         LaunchResult.FAILED -> "Couldn't open this notification"
     }

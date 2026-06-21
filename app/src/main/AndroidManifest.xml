@@ -17,6 +17,10 @@
     <!-- Re-arm scheduled digests after a device reboot. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- Let the user exempt the app from battery optimization so the OEM doesn't kill the
+         notification listener (which makes notifications slip through + breaks deep links). -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <!-- Gentle haptic feedback for delivery (optional, user-controllable). -->
     <uses-permission android:name="android.permission.VIBRATE" />
 

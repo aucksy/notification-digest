@@ -93,10 +93,17 @@ class SettingsViewModel @Inject constructor(
                 return@launch
             }
             driveEmail.value = email
-            // First connect = an immediate backup so there's something to restore later.
-            runCatching { driveBackupManager.backupNow() }
-                .onSuccess { eventChannel.send("Connected — backed up to Drive") }
-                .onFailure { eventChannel.send(it.message ?: "Connected, but the first backup failed") }
+            // CRITICAL: never overwrite an existing backup on connect (that once wiped real data with
+            // a fresh state). If a backup already exists, leave it alone and prompt to restore; only
+            // create a first backup when there's genuinely nothing on Drive yet.
+            val exists = runCatching { driveBackupManager.backupExists() }.getOrDefault(false)
+            if (exists) {
+                eventChannel.send("Connected. A Drive backup was found — tap “Restore from Drive” to bring it back.")
+            } else {
+                runCatching { driveBackupManager.backupNow() }
+                    .onSuccess { eventChannel.send("Connected — backed up to Drive") }
+                    .onFailure { eventChannel.send(it.message ?: "Connected to Google Drive") }
+            }
             driveBusy.value = DriveBusy.NONE
         }
     }

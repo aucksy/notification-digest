@@ -118,9 +118,21 @@ class DriveBackupManager @Inject constructor(
     /** Restore the config from the Drive backup. Returns false if there's no backup yet. */
     suspend fun restoreFromDrive(): Boolean = withContext(io) {
         val token = accessToken()
-        val folderId = ensureFolderId(token)
+        val folderId = findFolderId(token) ?: return@withContext false
         val id = findBackupId(token, folderId) ?: return@withContext false
         configBackupManager.importJson(downloadFile(token, id))
+    }
+
+    /**
+     * Whether a backup already exists on Drive — WITHOUT creating the folder or touching anything.
+     * Used on connect so we never blindly overwrite a real backup with a fresh/empty state.
+     */
+    suspend fun backupExists(): Boolean = withContext(io) {
+        runCatching {
+            val token = accessToken()
+            val folderId = findFolderId(token) ?: return@runCatching false
+            findBackupId(token, folderId) != null
+        }.getOrDefault(false)
     }
 
     // --- Drive v3 REST (raw HTTP with the access token) ---
@@ -131,15 +143,19 @@ class DriveBackupManager @Inject constructor(
         return GoogleAuthUtil.getToken(context, account, "oauth2:${DriveConfig.DRIVE_FILE_SCOPE}")
     }
 
-    private fun ensureFolderId(token: String): String {
+    /** The app's Drive folder id, or null if it doesn't exist yet (does NOT create it). */
+    private fun findFolderId(token: String): String? {
         val q = URLEncoder.encode(
             "name = '${DriveConfig.FOLDER_NAME}' and mimeType = '${DriveConfig.FOLDER_MIME}' and trashed = false",
             "UTF-8",
         )
         val list = request("GET", "$DRIVE/files?q=$q&spaces=drive&pageSize=1&fields=files(id)", token)
-        JSONObject(list).optJSONArray("files")?.takeIf { it.length() > 0 }
-            ?.let { return it.getJSONObject(0).getString("id") }
+        return JSONObject(list).optJSONArray("files")?.takeIf { it.length() > 0 }
+            ?.getJSONObject(0)?.getString("id")
+    }
 
+    private fun ensureFolderId(token: String): String {
+        findFolderId(token)?.let { return it }
         val body = JSONObject()
             .put("name", DriveConfig.FOLDER_NAME)
             .put("mimeType", DriveConfig.FOLDER_MIME)

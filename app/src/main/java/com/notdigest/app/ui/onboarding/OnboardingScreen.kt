@@ -131,7 +131,6 @@ fun OnboardingScreen(
                     },
                 )
                 4 -> BackgroundReliabilityPage(
-                    batteryExempt = batteryExempt,
                     onAllow = {
                         if (batteryExempt) {
                             BatteryOptimizationState.openAppBatterySettings(context)
@@ -259,25 +258,17 @@ private fun GrantAccessPage(granted: Boolean, onGrant: () -> Unit) {
 }
 
 @Composable
-private fun BackgroundReliabilityPage(batteryExempt: Boolean, onAllow: () -> Unit) {
+private fun BackgroundReliabilityPage(onAllow: () -> Unit) {
     OnboardingPage(
         icon = Icons.Filled.Bolt,
         title = "Keep it running reliably",
-        body = "Phones — especially OnePlus, Oppo and Realme — stop apps in the background to save power. That would let notifications slip through and break tapped notifications. Allow Notification Digest to keep running so nothing is missed.",
+        body = "Phones — especially OnePlus, Oppo and Realme — stop apps in the background to save power, which would let notifications slip through. Allow Notification Digest to keep running so nothing is missed.",
         extra = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                if (batteryExempt) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.size(Spacing.sm))
-                        Text("Battery optimization allowed", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                    }
-                    Spacer(Modifier.height(Spacing.md))
-                }
                 Button(onClick = onAllow) { Text("Allow background running") }
                 Spacer(Modifier.height(Spacing.md))
                 Text(
-                    "On the battery screen that opens, choose “Allow background activity” (not Smart mode). This is the key setting for reliable delivery.",
+                    "Then open Battery Settings and choose “Allow background activity” — not Smart mode. This is the key setting for reliable delivery.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

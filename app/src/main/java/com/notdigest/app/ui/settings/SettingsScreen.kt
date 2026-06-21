@@ -141,29 +141,24 @@ fun SettingsScreen(
                 }
             }
 
-            // --- Keep running reliably (standard exemption + the OEM's own background control) ---
+            // --- Keep running reliably (battery / background) ---
             SettingsGroup(title = "Keep running reliably") {
                 NotDigestCard {
                     Text(
-                        "Your phone can stop Notification Digest in the background — then notifications slip through and tapped ones open the app's home instead of the right screen. Two settings keep it reliable:",
+                        "Your phone can stop Notification Digest in the background to save power — then notifications slip through and tapped ones open the app's home. To keep it reliable, allow it to always run in the background:",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(Spacing.sm))
                     Text(
-                        if (batteryExempt) "1.  Battery optimization — allowed ✓" else "1.  Battery optimization — not yet allowed",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (batteryExempt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        "2.  Your phone's own battery control (OnePlus / Oppo / Realme, etc.) — set Notification Digest to “Allow background activity” (not Smart mode). Only you can change this one.",
+                        "1.  Tap “Allow background running” below.\n2.  On the app's page, open Battery Settings.\n3.  Choose “Allow background activity” — not Smart mode or Optimised.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     if (batteryRestricted) {
                         Spacer(Modifier.height(Spacing.sm))
                         Text(
-                            "⚠ Your phone is set to “Restrict background activity” — this will keep killing the app. Switch it to “Allow background activity”.",
+                            "⚠ Your phone is set to “Restrict background activity” — this keeps killing the app. Switch it to “Allow background activity”.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error,
                         )
@@ -171,11 +166,7 @@ fun SettingsScreen(
                 }
                 NavRow(
                     title = "Allow background running",
-                    subtitle = if (batteryExempt) {
-                        "Step 1 done — opens battery settings for step 2 (choose “Allow background activity”)"
-                    } else {
-                        "Allows step 1, then opens battery settings for step 2"
-                    },
+                    subtitle = "Then choose “Allow background activity” in Battery Settings",
                     onClick = {
                         if (batteryExempt) {
                             BatteryOptimizationState.openAppBatterySettings(context)

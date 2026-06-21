@@ -3,10 +3,10 @@ package com.notdigest.app.data.repository
 import com.notdigest.app.core.util.TimeProvider
 import com.notdigest.app.data.local.dao.AppRuleDao
 import com.notdigest.app.data.local.dao.DismissedRecommendationDao
-import com.notdigest.app.data.local.dao.NotificationDao
 import com.notdigest.app.data.local.entity.DismissedRecommendationEntity
 import com.notdigest.app.domain.model.AppRecommendation
 import com.notdigest.app.domain.model.DigestMode
+import com.notdigest.app.domain.repository.RealtimeStatsRepository
 import com.notdigest.app.domain.repository.RecommendationRepository
 import com.notdigest.app.domain.usecase.GenerateRecommendationsUseCase
 import kotlinx.coroutines.flow.Flow
@@ -16,7 +16,7 @@ import javax.inject.Singleton
 
 @Singleton
 class RecommendationRepositoryImpl @Inject constructor(
-    private val notificationDao: NotificationDao,
+    private val realtimeStats: RealtimeStatsRepository,
     private val appRuleDao: AppRuleDao,
     private val dismissedDao: DismissedRecommendationDao,
     private val generate: GenerateRecommendationsUseCase,
@@ -26,27 +26,25 @@ class RecommendationRepositoryImpl @Inject constructor(
     override fun observeRecommendations(): Flow<List<AppRecommendation>> {
         val weekAgo = time.now() - SEVEN_DAYS_MS
         return combine(
-            notificationDao.observePerAppCountsSince(weekAgo),
+            // Volume of un-batched (Real-Time) apps — the only thing we suggest acting on.
+            realtimeStats.observePerAppCountsSince(weekAgo),
             appRuleDao.observeAll(),
             dismissedDao.observeAll(),
         ) { counts, rules, dismissed ->
             val ruleByPkg = rules.associateBy { it.packageName }
-            val volumes = counts.map { pc ->
-                val rule = ruleByPkg[pc.packageName]
+            val volumes = counts.map { (pkg, cnt) ->
+                val rule = ruleByPkg[pkg]
                 GenerateRecommendationsUseCase.AppVolume(
-                    packageName = pc.packageName,
-                    appName = rule?.appName ?: pc.packageName,
+                    packageName = pkg,
+                    appName = rule?.appName ?: pkg,
                     mode = rule?.let { runCatching { DigestMode.valueOf(it.mode) }.getOrNull() }
                         ?: DigestMode.DIGEST,
-                    weeklyCount = pc.cnt,
+                    weeklyCount = cnt,
                 )
             }
             // A dismissed suggestion stays hidden until the app's volume grows materially (>1.5x).
             val dismissedSet = dismissed
-                .filter { d ->
-                    val current = counts.firstOrNull { it.packageName == d.packageName }?.cnt ?: 0
-                    current <= d.countAtDismiss * 1.5
-                }
+                .filter { d -> (counts[d.packageName] ?: 0) <= d.countAtDismiss * 1.5 }
                 .map { it.packageName }
                 .toSet()
 
@@ -56,7 +54,7 @@ class RecommendationRepositoryImpl @Inject constructor(
 
     override suspend fun dismiss(packageName: String) {
         val now = time.now()
-        val current = notificationDao.countForPackageSince(packageName, now - SEVEN_DAYS_MS)
+        val current = realtimeStats.countForPackageSince(packageName, now - SEVEN_DAYS_MS)
         dismissedDao.upsert(DismissedRecommendationEntity(packageName, now, current))
     }
 

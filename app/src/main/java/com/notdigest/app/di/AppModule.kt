@@ -7,11 +7,13 @@ import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.room.Room
 import com.notdigest.app.core.Constants
+import com.notdigest.app.data.local.MIGRATION_1_2
 import com.notdigest.app.data.local.NotDigestDatabase
 import com.notdigest.app.data.local.dao.AppRuleDao
 import com.notdigest.app.data.local.dao.DigestDao
 import com.notdigest.app.data.local.dao.DismissedRecommendationDao
 import com.notdigest.app.data.local.dao.NotificationDao
+import com.notdigest.app.data.local.dao.RealtimeEventDao
 import com.notdigest.app.data.local.dao.ScheduleDao
 import dagger.Module
 import dagger.Provides
@@ -33,6 +35,7 @@ object AppModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): NotDigestDatabase =
         Room.databaseBuilder(context, NotDigestDatabase::class.java, Constants.DATABASE_NAME)
+            .addMigrations(MIGRATION_1_2)
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()
 
@@ -51,6 +54,9 @@ object AppModule {
     @Provides
     fun provideDismissedRecommendationDao(db: NotDigestDatabase): DismissedRecommendationDao =
         db.dismissedRecommendationDao()
+
+    @Provides
+    fun provideRealtimeEventDao(db: NotDigestDatabase): RealtimeEventDao = db.realtimeEventDao()
 
     @Provides
     @Singleton

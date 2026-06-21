@@ -6,6 +6,7 @@ import com.notdigest.app.data.repository.AppRuleRepositoryImpl
 import com.notdigest.app.data.repository.DigestRepositoryImpl
 import com.notdigest.app.data.repository.NotificationRepositoryImpl
 import com.notdigest.app.data.repository.PreferencesRepositoryImpl
+import com.notdigest.app.data.repository.RealtimeStatsRepositoryImpl
 import com.notdigest.app.data.repository.RecommendationRepositoryImpl
 import com.notdigest.app.data.repository.ScheduleRepositoryImpl
 import com.notdigest.app.data.repository.StatsRepositoryImpl
@@ -16,6 +17,7 @@ import com.notdigest.app.domain.repository.DigestRepository
 import com.notdigest.app.domain.repository.InstalledAppsRepository
 import com.notdigest.app.domain.repository.NotificationRepository
 import com.notdigest.app.domain.repository.PreferencesRepository
+import com.notdigest.app.domain.repository.RealtimeStatsRepository
 import com.notdigest.app.domain.repository.RecommendationRepository
 import com.notdigest.app.domain.repository.ScheduleRepository
 import com.notdigest.app.domain.repository.StatsRepository
@@ -66,6 +68,10 @@ abstract class BindsModule {
     @Binds
     @Singleton
     abstract fun bindRecommendationRepository(impl: RecommendationRepositoryImpl): RecommendationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRealtimeStatsRepository(impl: RealtimeStatsRepositoryImpl): RealtimeStatsRepository
 
     @Binds
     @Singleton

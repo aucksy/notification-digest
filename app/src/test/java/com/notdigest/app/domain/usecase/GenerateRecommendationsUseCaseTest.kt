@@ -10,30 +10,32 @@ class GenerateRecommendationsUseCaseTest {
 
     private val useCase = GenerateRecommendationsUseCase()
 
-    private fun volume(pkg: String, count: Int, mode: DigestMode = DigestMode.DIGEST) =
+    // Suggestions are now only for un-batched (Real-Time) apps, so default the mode accordingly.
+    private fun volume(pkg: String, count: Int, mode: DigestMode = DigestMode.REALTIME) =
         AppVolume(packageName = pkg, appName = pkg, mode = mode, weeklyCount = count)
 
     @Test
-    fun `very high volume suggests moving to Real-Time`() {
+    fun `noisy real-time app suggests moving to Digest`() {
         val recs = useCase(listOf(volume("noisy", 80)), dismissed = emptySet())
         assertThat(recs).hasSize(1)
-        assertThat(recs.first().type).isEqualTo(RecommendationType.MOVE_TO_REALTIME)
+        assertThat(recs.first().type).isEqualTo(RecommendationType.MOVE_TO_DIGEST)
     }
 
     @Test
-    fun `moderate volume affirms keeping in Digest`() {
-        val recs = useCase(listOf(volume("steady", 25)), dismissed = emptySet())
-        assertThat(recs.first().type).isEqualTo(RecommendationType.KEEP_IN_DIGEST)
+    fun `apps already in Digest are never recommended`() {
+        val recs = useCase(listOf(volume("steady", 80, DigestMode.DIGEST)), dismissed = emptySet())
+        assertThat(recs).isEmpty()
     }
 
     @Test
-    fun `low volume produces no recommendation`() {
-        assertThat(useCase(listOf(volume("quiet", 5)), dismissed = emptySet())).isEmpty()
+    fun `volume below the high threshold produces no recommendation`() {
+        assertThat(useCase(listOf(volume("light", 25)), dismissed = emptySet())).isEmpty()
     }
 
     @Test
-    fun `real-time apps are never recommended`() {
-        val recs = useCase(listOf(volume("rt", 90, DigestMode.REALTIME)), dismissed = emptySet())
+    fun `critical apps are never suggested for quieting`() {
+        // 'messages' matches a critical keyword hint, so it stays Real-Time even when very noisy.
+        val recs = useCase(listOf(volume("com.android.messages", 200)), dismissed = emptySet())
         assertThat(recs).isEmpty()
     }
 
@@ -48,7 +50,7 @@ class GenerateRecommendationsUseCaseTest {
         val volumes = (1..10).map { volume("app$it", count = it * 10) }
         val recs = useCase(volumes, dismissed = emptySet(), maxResults = 3)
         assertThat(recs).hasSize(3)
-        // Top 3 by weekly volume, highest first (app1's count of 10 is below the moderate threshold).
+        // Top 3 by weekly volume, highest first. app1..app4 (10..40) are below the 50 threshold.
         assertThat(recs.map { it.weeklyCount }).containsExactly(100, 90, 80).inOrder()
     }
 }

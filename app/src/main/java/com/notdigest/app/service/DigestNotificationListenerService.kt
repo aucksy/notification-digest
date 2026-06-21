@@ -13,6 +13,7 @@ import com.notdigest.app.domain.model.NotificationActionItem
 import com.notdigest.app.domain.repository.AppRuleRepository
 import com.notdigest.app.domain.repository.NotificationRepository
 import com.notdigest.app.domain.repository.PreferencesRepository
+import com.notdigest.app.domain.repository.RealtimeStatsRepository
 import com.notdigest.app.domain.system.DigestNotifier
 import com.notdigest.app.domain.usecase.InitializeAppDataUseCase
 import dagger.hilt.android.AndroidEntryPoint
@@ -33,6 +34,7 @@ class DigestNotificationListenerService : NotificationListenerService() {
     @Inject lateinit var notificationRepository: NotificationRepository
     @Inject lateinit var appRuleRepository: AppRuleRepository
     @Inject lateinit var preferencesRepository: PreferencesRepository
+    @Inject lateinit var realtimeStats: RealtimeStatsRepository
     @Inject lateinit var pendingIntentStore: PendingIntentStore
     @Inject lateinit var digestNotifier: DigestNotifier
     @Inject lateinit var modeCache: ModeCache
@@ -66,7 +68,8 @@ class DigestNotificationListenerService : NotificationListenerService() {
         active.forEach { sbn ->
             if (shouldIgnore(sbn)) return@forEach
             val captured = capture(sbn) ?: return@forEach
-            runCatching { processWithLookup(captured) }
+            // Don't re-count Real-Time apps here — they're still showing and were counted on post.
+            runCatching { processWithLookup(captured, countRealtime = false) }
         }
     }
 
@@ -81,7 +84,7 @@ class DigestNotificationListenerService : NotificationListenerService() {
         // Decide as fast as possible. For Real-Time apps, do nothing. For known Digest apps, cancel
         // synchronously on the binder thread (no DB wait) so the notification barely flashes.
         when (modeCache.cachedMode(sbn.packageName)) {
-            DigestMode.REALTIME -> return
+            DigestMode.REALTIME -> { recordRealtime(sbn); return }
             DigestMode.DIGEST -> {
                 val captured = capture(sbn) ?: return
                 captured.contentIntent?.let {
@@ -109,9 +112,15 @@ class DigestNotificationListenerService : NotificationListenerService() {
     }
 
     /** Slow path used until the mode cache is warm: confirm the mode against the DB, then suppress. */
-    private suspend fun processWithLookup(captured: CapturedNotification) {
+    private suspend fun processWithLookup(captured: CapturedNotification, countRealtime: Boolean = true) {
         try {
-            if (appRuleRepository.getMode(captured.packageName) != DigestMode.DIGEST) return
+            if (appRuleRepository.getMode(captured.packageName) != DigestMode.DIGEST) {
+                // Real-Time (or critical) app — record its volume (no content) for noisy-app suggestions.
+                if (countRealtime) {
+                    runCatching { realtimeStats.record(captured.packageName, captured.appName, captured.postedAt) }
+                }
+                return
+            }
             captured.contentIntent?.let {
                 pendingIntentStore.put(captured.key, it, captured.actionIntents)
             }
@@ -175,6 +184,13 @@ class DigestNotificationListenerService : NotificationListenerService() {
             actionIntents = actions?.map { it.actionIntent } ?: emptyList(),
             actionItems = actionItems,
         )
+    }
+
+    /** Record that a Real-Time app posted (package + time only) so we can spot noisy un-batched apps. */
+    private fun recordRealtime(sbn: StatusBarNotification) {
+        val pkg = sbn.packageName
+        val postedAt = sbn.postTime
+        scope.launch { runCatching { realtimeStats.record(pkg, loadAppLabel(pkg), postedAt) } }
     }
 
     private fun loadAppLabel(pkg: String): String = runCatching {

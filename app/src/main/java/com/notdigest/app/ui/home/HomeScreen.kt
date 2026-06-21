@@ -229,7 +229,6 @@ private fun RecommendationCard(
     onApply: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val isMove = recommendation.type == com.notdigest.app.domain.model.RecommendationType.MOVE_TO_REALTIME
     NotDigestCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
             com.notdigest.app.ui.components.AppIcon(
@@ -240,7 +239,7 @@ private fun RecommendationCard(
             Column(Modifier.weight(1f)) {
                 Text(recommendation.appName, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
                 Text(
-                    "${recommendation.weeklyCount} notifications this week",
+                    "Real-Time · ${recommendation.weeklyCount} notifications this week",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -249,7 +248,7 @@ private fun RecommendationCard(
         Spacer(Modifier.height(Spacing.md))
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Button(onClick = onApply, modifier = Modifier.weight(1f)) {
-                Text(if (isMove) "Make Real-Time" else "Keep in Digest")
+                Text("Move to Digest")
             }
             TextButton(onClick = onDismiss) { Text("Dismiss") }
         }

@@ -9,6 +9,7 @@ import com.notdigest.app.core.util.TimeProvider
 import com.notdigest.app.domain.repository.DigestRepository
 import com.notdigest.app.domain.repository.NotificationRepository
 import com.notdigest.app.domain.repository.PreferencesRepository
+import com.notdigest.app.domain.repository.RealtimeStatsRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
@@ -20,6 +21,7 @@ class RetentionCleanupWorker @AssistedInject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val notificationRepository: NotificationRepository,
     private val digestRepository: DigestRepository,
+    private val realtimeStats: RealtimeStatsRepository,
     private val time: TimeProvider,
 ) : CoroutineWorker(context, params) {
 
@@ -29,6 +31,7 @@ class RetentionCleanupWorker @AssistedInject constructor(
         runCatching {
             val removed = notificationRepository.purgeOlderThan(cutoff)
             digestRepository.deleteOlderThan(cutoff)
+            realtimeStats.purgeOlderThan(cutoff)
             removed
         }.onFailure { Log.w(TAG, "Retention cleanup failed", it) }
         return Result.success()

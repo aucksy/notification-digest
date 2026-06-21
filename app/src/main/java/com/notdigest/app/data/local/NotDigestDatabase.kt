@@ -7,11 +7,13 @@ import com.notdigest.app.data.local.dao.AppRuleDao
 import com.notdigest.app.data.local.dao.DigestDao
 import com.notdigest.app.data.local.dao.DismissedRecommendationDao
 import com.notdigest.app.data.local.dao.NotificationDao
+import com.notdigest.app.data.local.dao.RealtimeEventDao
 import com.notdigest.app.data.local.dao.ScheduleDao
 import com.notdigest.app.data.local.entity.AppRuleEntity
 import com.notdigest.app.data.local.entity.DigestEntity
 import com.notdigest.app.data.local.entity.DismissedRecommendationEntity
 import com.notdigest.app.data.local.entity.NotificationEntity
+import com.notdigest.app.data.local.entity.RealtimeEventEntity
 import com.notdigest.app.data.local.entity.ScheduleEntity
 
 @Database(
@@ -21,8 +23,9 @@ import com.notdigest.app.data.local.entity.ScheduleEntity
         AppRuleEntity::class,
         ScheduleEntity::class,
         DismissedRecommendationEntity::class,
+        RealtimeEventEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -32,4 +35,5 @@ abstract class NotDigestDatabase : RoomDatabase() {
     abstract fun appRuleDao(): AppRuleDao
     abstract fun scheduleDao(): ScheduleDao
     abstract fun dismissedRecommendationDao(): DismissedRecommendationDao
+    abstract fun realtimeEventDao(): RealtimeEventDao
 }

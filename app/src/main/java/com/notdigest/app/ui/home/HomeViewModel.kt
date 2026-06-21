@@ -7,7 +7,6 @@ import com.notdigest.app.domain.model.AppRecommendation
 import com.notdigest.app.domain.model.DigestMode
 import com.notdigest.app.domain.model.DigestType
 import com.notdigest.app.domain.model.NotificationStats
-import com.notdigest.app.domain.model.RecommendationType
 import com.notdigest.app.domain.repository.AppRuleRepository
 import com.notdigest.app.domain.repository.RecommendationRepository
 import com.notdigest.app.domain.repository.ScheduleRepository
@@ -87,12 +86,8 @@ class HomeViewModel @Inject constructor(
 
     fun applyRecommendation(recommendation: AppRecommendation) {
         viewModelScope.launch {
-            if (recommendation.type == RecommendationType.MOVE_TO_REALTIME) {
-                appRuleRepository.setMode(recommendation.packageName, recommendation.appName, DigestMode.REALTIME)
-                eventChannel.send("${recommendation.appName} is now Real-Time")
-            } else {
-                eventChannel.send("Keeping ${recommendation.appName} in Digest")
-            }
+            appRuleRepository.setMode(recommendation.packageName, recommendation.appName, DigestMode.DIGEST)
+            eventChannel.send("${recommendation.appName} is now in Digest")
             recommendationRepository.dismiss(recommendation.packageName)
         }
     }

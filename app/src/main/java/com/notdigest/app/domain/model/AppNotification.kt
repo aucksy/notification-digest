@@ -21,6 +21,7 @@ data class AppNotification(
     val isRead: Boolean = false,
     val isDelivered: Boolean = false,
     val digestId: Long? = null,
+    val deliveredAt: Long? = null,
     val hasDeepLink: Boolean = false,
     val actions: List<NotificationActionItem> = emptyList(),
 ) {

@@ -63,4 +63,6 @@ class DigestRepositoryImpl @Inject constructor(
 
     override suspend fun deleteOlderThan(olderThan: Long): Int =
         digestDao.deleteOlderThan(olderThan)
+
+    override suspend fun deleteEmptyDigests(): Int = digestDao.deleteEmptyDigests()
 }

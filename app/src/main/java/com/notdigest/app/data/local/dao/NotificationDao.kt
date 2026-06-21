@@ -102,7 +102,13 @@ interface NotificationDao {
     )
     suspend fun assignToDigest(ids: List<Long>, digestId: Long, deliveredAt: Long)
 
-    @Query("DELETE FROM notifications WHERE postedAt < :olderThan")
+    // Pending notifications age out by when they arrived; delivered ones by when they were delivered,
+    // so a delivered notification is never purged before its digest (which is kept by createdAt).
+    @Query(
+        "DELETE FROM notifications WHERE " +
+            "(deliveredAt IS NULL AND postedAt < :olderThan) OR " +
+            "(deliveredAt IS NOT NULL AND deliveredAt < :olderThan)",
+    )
     suspend fun purgeOlderThan(olderThan: Long): Int
 
     // --- Statistics ---

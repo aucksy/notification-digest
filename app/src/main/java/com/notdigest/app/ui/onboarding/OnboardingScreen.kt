@@ -130,10 +130,16 @@ fun OnboardingScreen(
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             postNotifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
                         }
-                        context.startActivity(
-                            Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                        )
+                        runCatching {
+                            context.startActivity(
+                                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }.onFailure {
+                            runCatching {
+                                context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            }
+                        }
                     },
                 )
                 4 -> BackgroundReliabilityPage(
@@ -174,7 +180,10 @@ fun OnboardingScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(
-                onClick = { onFinished() },
+                // Route Skip through the ViewModel so it persists onboardingComplete AND seeds a
+                // default schedule — a raw nav-only skip left users re-onboarding forever with no
+                // schedule (so digests were collected but never delivered).
+                onClick = { viewModel.finish(onFinished) },
                 enabled = pagerState.currentPage < PAGE_COUNT - 1,
             ) {
                 Text(if (pagerState.currentPage < PAGE_COUNT - 1) "Skip" else "")

@@ -342,9 +342,15 @@ fun SettingsScreen(
 }
 
 private fun openListenerSettings(context: android.content.Context) {
-    context.startActivity(
-        Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-    )
+    runCatching {
+        context.startActivity(
+            Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }.onFailure {
+        runCatching {
+            context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+    }
 }
 
 /** Open the per-app notification settings list so the user can set a noisy app to Silent. */

@@ -20,4 +20,7 @@ interface DigestRepository {
     suspend fun deleteDigest(id: Long)
 
     suspend fun deleteOlderThan(olderThan: Long): Int
+
+    /** Remove digests left with no notifications (e.g. after a retention purge) so counts never lie. */
+    suspend fun deleteEmptyDigests(): Int
 }

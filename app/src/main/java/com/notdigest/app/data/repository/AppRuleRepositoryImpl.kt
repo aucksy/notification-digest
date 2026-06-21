@@ -1,5 +1,6 @@
 package com.notdigest.app.data.repository
 
+import com.notdigest.app.core.util.CriticalDefaults
 import com.notdigest.app.core.util.TimeProvider
 import com.notdigest.app.data.local.dao.AppRuleDao
 import com.notdigest.app.data.local.entity.AppRuleEntity
@@ -28,10 +29,15 @@ class AppRuleRepositoryImpl @Inject constructor(
     override fun observeRealtimeCount(): Flow<Int> =
         dao.observeCountByMode(DigestMode.REALTIME.name)
 
-    override suspend fun getMode(packageName: String): DigestMode =
-        dao.getByPackage(packageName)
-            ?.let { runCatching { DigestMode.valueOf(it.mode) }.getOrDefault(DigestMode.DIGEST) }
-            ?: DigestMode.DIGEST
+    override suspend fun getMode(packageName: String): DigestMode {
+        dao.getByPackage(packageName)?.let {
+            // An explicit rule always wins (incl. a user deliberately moving a critical app to Digest).
+            return runCatching { DigestMode.valueOf(it.mode) }.getOrDefault(DigestMode.DIGEST)
+        }
+        // No rule yet (cold start / brand-new app, before seeding finishes): never suppress a critical
+        // app (SMS/OTP/dialer/…) by blindly defaulting to Digest — that could swallow a live 2FA code.
+        return if (CriticalDefaults.isCritical(packageName, packageName)) DigestMode.REALTIME else DigestMode.DIGEST
+    }
 
     override suspend fun setMode(packageName: String, appName: String, mode: DigestMode) {
         val existing = dao.getByPackage(packageName)

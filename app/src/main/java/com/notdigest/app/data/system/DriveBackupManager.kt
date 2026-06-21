@@ -108,8 +108,12 @@ class DriveBackupManager @Inject constructor(
         val json = configBackupManager.exportJson()
         val token = accessToken()
         val folderId = ensureFolderId(token)
-        findBackupId(token, folderId)?.let { deleteFile(token, it) }
+        val existing = findBackupId(token, folderId)
+        // Create the new backup FIRST; only then remove the old one. If create fails, the old backup
+        // survives; if delete fails, the worst case is a harmless duplicate (findBackupId takes the
+        // newest). Never delete-before-create — that once destroyed a real backup.
         createFile(token, folderId, json)
+        if (existing != null) runCatching { deleteFile(token, existing) }
         val now = System.currentTimeMillis()
         preferencesRepository.setDriveLastBackupAt(now)
         now

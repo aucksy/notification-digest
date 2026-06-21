@@ -20,6 +20,9 @@ interface AppRuleDao {
     @Query("SELECT COUNT(*) FROM app_rules WHERE mode = :mode")
     fun observeCountByMode(mode: String): Flow<Int>
 
+    @Query("SELECT packageName FROM app_rules WHERE mode = :mode")
+    fun observePackagesByMode(mode: String): Flow<List<String>>
+
     @Query("SELECT * FROM app_rules WHERE packageName = :pkg LIMIT 1")
     suspend fun getByPackage(pkg: String): AppRuleEntity?
 

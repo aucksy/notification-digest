@@ -17,10 +17,11 @@ class SyncInstalledAppRulesUseCase @Inject constructor(
     private val time: TimeProvider,
 ) {
     suspend operator fun invoke() {
-        val now = time.now()
         val apps = installedApps.getInstalledApps()
+        // Seed with updatedAt = 0 so only a real user change stamps a timestamp — otherwise the
+        // "Recently changed" row would list freshly-seeded apps the user never touched.
         appRules.seedDefaults(
-            apps.map { AppRule(it.packageName, it.appName, it.mode, it.isSystemApp, now) },
+            apps.map { AppRule(it.packageName, it.appName, it.mode, it.isSystemApp, 0L) },
         )
     }
 }

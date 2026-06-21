@@ -42,6 +42,8 @@ class DigestSchedulerImpl @Inject constructor(
         scope.launch { rescheduleInternal() }
     }
 
+    override suspend fun rescheduleNow() = rescheduleInternal()
+
     private suspend fun rescheduleInternal() {
         val schedules = scheduleRepository.snapshot()
         val next = computeNextDigestTime(schedules, time.now())

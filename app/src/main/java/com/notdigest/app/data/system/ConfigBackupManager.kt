@@ -138,7 +138,7 @@ class ConfigBackupManager @Inject constructor(
     suspend fun importJson(text: String): Boolean = withContext(io) {
         val json = runCatching { JSONObject(text) }.getOrNull() ?: return@withContext false
         if (!json.has("rules") && !json.has("prefs")) return@withContext false
-        applyJson(json)
+        applyJson(json, replaceSchedules = true)
         // Keep the internal snapshot (and therefore Auto Backup) in sync with the imported config.
         runCatching {
             file.writeText(json.toString())
@@ -157,11 +157,11 @@ class ConfigBackupManager @Inject constructor(
         if (!snapshotFile.exists()) return@withContext false
         val json = runCatching { JSONObject(snapshotFile.readText()) }.getOrNull()
             ?: return@withContext false
-        applyJson(json)
+        applyJson(json, replaceSchedules = false)
         true
     }
 
-    private suspend fun applyJson(json: JSONObject) {
+    private suspend fun applyJson(json: JSONObject, replaceSchedules: Boolean) {
         json.optJSONArray("rules")?.let { arr ->
             for (i in 0 until arr.length()) {
                 val o = arr.optJSONObject(i) ?: continue
@@ -172,10 +172,17 @@ class ConfigBackupManager @Inject constructor(
             }
         }
 
-        if (scheduleRepository.snapshot().isEmpty()) {
-            json.optJSONArray("schedules")?.let { arr ->
-                for (i in 0 until arr.length()) {
-                    val o = arr.optJSONObject(i) ?: continue
+        // For an explicit user restore (Drive / file), replace the schedules with the backup's set.
+        // For the silent first-launch local restore, only restore when none exist yet (so we don't
+        // duplicate onboarding-seeded schedules).
+        if (replaceSchedules || scheduleRepository.snapshot().isEmpty()) {
+            val backedUp = json.optJSONArray("schedules")
+            if (backedUp != null) {
+                if (replaceSchedules) {
+                    scheduleRepository.snapshot().forEach { scheduleRepository.delete(it.id) }
+                }
+                for (i in 0 until backedUp.length()) {
+                    val o = backedUp.optJSONObject(i) ?: continue
                     scheduleRepository.upsert(
                         Schedule(
                             label = o.optString("label", "Digest"),

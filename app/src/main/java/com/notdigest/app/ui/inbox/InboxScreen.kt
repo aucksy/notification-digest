@@ -67,7 +67,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.notdigest.app.core.util.TimeFormatter
 import com.notdigest.app.domain.model.AppNotification
 import com.notdigest.app.ui.LocalHapticsEnabled
 import com.notdigest.app.ui.components.AppIcon
@@ -79,7 +78,6 @@ import com.notdigest.app.ui.theme.NotDigestTheme
 import com.notdigest.app.ui.theme.Spacing
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 
 @Composable
 fun InboxScreen(
@@ -283,7 +281,6 @@ private fun ArchivedBanner(archivedCount: Int, isDelivering: Boolean, onSeeNow: 
 
 @Composable
 private fun GroupHeader(group: DaySection, onToggle: () -> Unit) {
-    val today = remember { LocalDate.now() }
     val rotation by animateFloatAsState(if (group.expanded) 180f else 0f, label = "chevron")
     Row(
         modifier = Modifier
@@ -295,7 +292,7 @@ private fun GroupHeader(group: DaySection, onToggle: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         Text(
-            TimeFormatter.dateChip(group.date, today),
+            group.label,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground,
             fontWeight = FontWeight.SemiBold,
@@ -456,7 +453,8 @@ private fun SwipeableNotificationRow(
             }
             NotificationListItem(
                 notification = notification,
-                onClick = { if (selectionMode) onToggleSelect() else onOpen() },
+                // No inner onClick — the row's combinedClickable handles tap AND long-press-to-select.
+                onClick = null,
                 modifier = Modifier.weight(1f),
             )
         }

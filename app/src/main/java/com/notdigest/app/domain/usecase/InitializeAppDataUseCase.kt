@@ -37,8 +37,10 @@ class InitializeAppDataUseCase @Inject constructor(
         }
 
         val apps = installedApps.getInstalledApps()
+        // updatedAt = 0 so seeding never fakes a "Recently changed" entry — only a real user change
+        // stamps a timestamp. (Matches SyncInstalledAppRulesUseCase; both seed insert-or-ignore.)
         appRules.seedDefaults(
-            apps.map { AppRule(it.packageName, it.appName, it.mode, it.isSystemApp, time.now()) },
+            apps.map { AppRule(it.packageName, it.appName, it.mode, it.isSystemApp, 0L) },
         )
 
         if (!restored && preferencesRepository.criticalDefaultsVersion() < CRITICAL_DEFAULTS_VERSION) {

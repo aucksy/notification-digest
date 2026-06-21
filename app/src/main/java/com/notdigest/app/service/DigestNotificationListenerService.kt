@@ -67,6 +67,11 @@ class DigestNotificationListenerService : NotificationListenerService() {
         val active = runCatching { activeNotifications }.getOrNull() ?: return
         active.forEach { sbn ->
             if (shouldIgnore(sbn)) return@forEach
+            // A lingering group summary from a Digest app: cancel it, never inbox it.
+            if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) {
+                runCatching { if (appRuleRepository.getMode(sbn.packageName) == DigestMode.DIGEST) cancelNotification(sbn.key) }
+                return@forEach
+            }
             val captured = capture(sbn) ?: return@forEach
             // Don't re-count Real-Time apps here — they're still showing and were counted on post.
             runCatching { processWithLookup(captured, countRealtime = false) }
@@ -81,11 +86,17 @@ class DigestNotificationListenerService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification, rankingMap: RankingMap?) {
         if (shouldIgnore(sbn)) return
 
+        // A group SUMMARY ("3 new messages") carries no content of its own to batch, but for a Digest
+        // app it must still be pulled from the shade alongside its children — otherwise it lingers,
+        // visible. We cancel it but never store it as a separate inbox item.
+        val isSummary = sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0
+
         // Decide as fast as possible. For Real-Time apps, do nothing. For known Digest apps, cancel
         // synchronously on the binder thread (no DB wait) so the notification barely flashes.
         when (modeCache.cachedMode(sbn.packageName)) {
-            DigestMode.REALTIME -> { recordRealtime(sbn); return }
+            DigestMode.REALTIME -> { if (!isSummary) recordRealtime(sbn); return }
             DigestMode.DIGEST -> {
+                if (isSummary) { runCatching { cancelNotification(sbn.key) }; return }
                 val captured = capture(sbn) ?: return
                 captured.contentIntent?.let {
                     pendingIntentStore.put(captured.key, it, captured.actionIntents)
@@ -95,6 +106,14 @@ class DigestNotificationListenerService : NotificationListenerService() {
             }
             null -> {
                 // Cold start / never-seen app: fall back to the authoritative async lookup.
+                if (isSummary) {
+                    val key = sbn.key
+                    val pkg = sbn.packageName
+                    scope.launch {
+                        runCatching { if (appRuleRepository.getMode(pkg) == DigestMode.DIGEST) cancelNotification(key) }
+                    }
+                    return
+                }
                 val captured = capture(sbn) ?: return
                 scope.launch { processWithLookup(captured) }
             }
@@ -145,7 +164,8 @@ class DigestNotificationListenerService : NotificationListenerService() {
         val flags = sbn.notification.flags
         if (flags and Notification.FLAG_ONGOING_EVENT != 0) return true
         if (flags and Notification.FLAG_FOREGROUND_SERVICE != 0) return true
-        if (flags and Notification.FLAG_GROUP_SUMMARY != 0) return true
+        // NOTE: group summaries are intentionally NOT ignored here — they're handled per-mode in
+        // onNotificationPosted (cancelled for Digest apps, left for Real-Time) so they don't linger.
         return when (sbn.notification.category) {
             Notification.CATEGORY_CALL,
             Notification.CATEGORY_TRANSPORT,

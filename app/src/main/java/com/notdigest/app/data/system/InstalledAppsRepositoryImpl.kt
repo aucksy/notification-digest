@@ -49,6 +49,19 @@ class InstalledAppsRepositoryImpl @Inject constructor(
             .toList()
     }
 
+    override suspend fun launchablePackageNames(): Set<String> = withContext(io) {
+        val pm = context.packageManager
+        val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+
+        @Suppress("DEPRECATION", "QueryPermissionsNeeded")
+        val resolved = pm.queryIntentActivities(launcherIntent, 0)
+
+        resolved.asSequence()
+            .map { it.activityInfo.packageName }
+            .filter { it != context.packageName }
+            .toSet()
+    }
+
     override suspend fun appLabel(packageName: String): String = withContext(io) {
         runCatching {
             val pm = context.packageManager

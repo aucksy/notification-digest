@@ -29,14 +29,17 @@ import com.notdigest.app.ui.theme.Spacing
 @Composable
 fun NotificationListItem(
     notification: AppNotification,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     showAppName: Boolean = true,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            // Only attach a click handler when one is given. When the parent already handles taps +
+            // long-press (e.g. the inbox row's combinedClickable), an inner clickable here would
+            // swallow the gesture and kill long-press-to-select.
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(vertical = Spacing.md, horizontal = Spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),

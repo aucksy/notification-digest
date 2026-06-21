@@ -1,5 +1,7 @@
 package com.notdigest.app.data.repository
 
+import androidx.room.withTransaction
+import com.notdigest.app.data.local.NotDigestDatabase
 import com.notdigest.app.data.local.dao.NotificationDao
 import com.notdigest.app.data.local.entity.NotificationEntity
 import com.notdigest.app.data.local.mapper.toDomain
@@ -14,6 +16,7 @@ import javax.inject.Singleton
 
 @Singleton
 class NotificationRepositoryImpl @Inject constructor(
+    private val db: NotDigestDatabase,
     private val dao: NotificationDao,
     private val preferencesRepository: PreferencesRepository,
 ) : NotificationRepository {
@@ -45,17 +48,25 @@ class NotificationRepositoryImpl @Inject constructor(
     override suspend fun insert(notification: AppNotification): Long = dao.insert(notification.toEntity())
 
     override suspend fun upsertPending(notification: AppNotification): Long {
-        var isReplacement = false
-        // 1. Same system key = the app updated the exact same notification in place.
-        notification.sbnKey?.let { key ->
-            dao.pendingIdByKey(key)?.let { existingId -> dao.delete(listOf(existingId)); isReplacement = true }
+        var isNew = false
+        var id = 0L
+        // Atomic dedup+insert: the listener fires suppressions on a multi-threaded scope, so without a
+        // transaction two concurrent re-posts of the same notification could both insert (duplicate
+        // row) and both increment the lifetime counter. The transaction serializes them.
+        db.withTransaction {
+            var replaced = false
+            // 1. Same system key = the app updated the exact same notification in place.
+            notification.sbnKey?.let { key ->
+                dao.pendingIdByKey(key)?.let { existingId -> dao.delete(listOf(existingId)); replaced = true }
+            }
+            // 2. Identical content under a new key = a duplicate the app re-fired (Phone, Zepto, etc.).
+            dao.pendingIdByContent(notification.packageName, notification.title, notification.text)
+                ?.let { dupId -> dao.delete(listOf(dupId)); replaced = true }
+            id = dao.insert(notification.toEntity())
+            isNew = !replaced
         }
-        // 2. Identical content under a new key = a duplicate the app re-fired (Phone, Zepto, etc.).
-        dao.pendingIdByContent(notification.packageName, notification.title, notification.text)
-            ?.let { dupId -> dao.delete(listOf(dupId)); isReplacement = true }
-        val id = dao.insert(notification.toEntity())
         // Each genuinely-new suppressed notification = one interruption avoided (lifetime, monotonic).
-        if (!isReplacement) preferencesRepository.addLifetimeAvoided(1)
+        if (isNew) preferencesRepository.addLifetimeAvoided(1)
         return id
     }
 

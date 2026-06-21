@@ -34,8 +34,10 @@ class DigestDeliveryWorker @AssistedInject constructor(
         runCatching { deliverDigest(type) }
             .onFailure { Log.w(TAG, "Digest delivery failed", it) }
 
-        // Always advance the schedule so a single bad run can never stall the chain.
-        if (mode == MODE_SCHEDULED) scheduler.reschedule()
+        // Re-arm the NEXT delivery and AWAIT it — must finish inside the worker's guaranteed
+        // execution window, or process death right after could lose the chain permanently.
+        if (mode == MODE_SCHEDULED) runCatching { scheduler.rescheduleNow() }
+            .onFailure { Log.w(TAG, "Reschedule failed", it) }
         return Result.success()
     }
 

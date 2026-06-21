@@ -2,6 +2,8 @@ package com.notdigest.app.ui.inbox
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.notdigest.app.core.util.TimeFormatter
+import com.notdigest.app.core.util.localDayFlow
 import com.notdigest.app.domain.model.AppNotification
 import com.notdigest.app.domain.model.DigestMode
 import com.notdigest.app.domain.model.DigestType
@@ -33,6 +35,7 @@ data class InboxMessage(val text: String, val undo: (suspend () -> Unit)? = null
 /** One day's worth of delivered notifications, shown as a collapsible section ("Today", "Yesterday", …). */
 data class DaySection(
     val date: LocalDate,
+    val label: String,
     val defaultExpanded: Boolean,
     val expanded: Boolean,
     val notifications: List<AppNotification>,
@@ -98,8 +101,10 @@ class InboxViewModel @Inject constructor(
         query,
         appFilter,
         selectedDate,
-    ) { list, q, filter, date ->
-        val today = LocalDate.now(zone)
+        // Re-emits at each local midnight so "Today"/"Yesterday" labels and default-expansion roll over
+        // even if the inbox stays open across midnight.
+        localDayFlow(zone),
+    ) { list, q, filter, date, today ->
         val yesterday = today.minusDays(1)
 
         // Collapse exact duplicates an app re-fired within a delivery (same app + title + text).
@@ -113,6 +118,7 @@ class InboxViewModel @Inject constructor(
             .map { (day, notifs) ->
                 DaySection(
                     date = day,
+                    label = TimeFormatter.dateChip(day, today),
                     // Today and Yesterday open by default; anything older starts collapsed.
                     defaultExpanded = day == today || day == yesterday,
                     expanded = false,

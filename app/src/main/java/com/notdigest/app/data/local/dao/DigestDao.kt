@@ -24,6 +24,10 @@ interface DigestDao {
     @Query("DELETE FROM digests WHERE createdAt < :olderThan")
     suspend fun deleteOlderThan(olderThan: Long): Int
 
+    /** Remove digests that no longer have any linked notifications (e.g. after retention purges). */
+    @Query("DELETE FROM digests WHERE id NOT IN (SELECT DISTINCT digestId FROM notifications WHERE digestId IS NOT NULL)")
+    suspend fun deleteEmptyDigests(): Int
+
     @Query(
         """
         SELECT DISTINCT d.* FROM digests d

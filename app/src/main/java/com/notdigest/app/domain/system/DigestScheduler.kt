@@ -6,8 +6,15 @@ package com.notdigest.app.domain.system
  */
 interface DigestScheduler {
 
-    /** Recompute the next enabled delivery time and (re)enqueue the delivery worker. */
+    /** Recompute the next enabled delivery time and (re)enqueue the delivery worker (fire-and-forget). */
     fun reschedule()
+
+    /**
+     * Like [reschedule] but suspends until the next delivery is actually enqueued. Workers and
+     * receivers MUST use this so the re-arm completes inside their guaranteed execution window —
+     * a fire-and-forget reschedule can be lost if the process is reclaimed right after.
+     */
+    suspend fun rescheduleNow()
 
     /** Periodic retention cleanup. */
     fun ensureCleanupScheduled()

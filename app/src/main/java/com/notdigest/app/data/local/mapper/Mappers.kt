@@ -26,6 +26,7 @@ fun NotificationEntity.toDomain(): AppNotification = AppNotification(
     isRead = isRead,
     isDelivered = isDelivered,
     digestId = digestId,
+    deliveredAt = deliveredAt,
     hasDeepLink = hasDeepLink,
     actions = actions,
 )
@@ -43,7 +44,9 @@ fun AppNotification.toEntity(): NotificationEntity = NotificationEntity(
     isRead = isRead,
     isDelivered = isDelivered,
     digestId = digestId,
-    deliveredAt = if (isDelivered) postedAt else null,
+    // Preserve the real delivery time on a round-trip (e.g. delete + undo); only fall back to
+    // postedAt when a delivered notification somehow has no stored deliveredAt.
+    deliveredAt = deliveredAt ?: if (isDelivered) postedAt else null,
     hasDeepLink = hasDeepLink,
     actions = actions,
 )

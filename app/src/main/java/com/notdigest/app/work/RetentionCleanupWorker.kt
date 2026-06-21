@@ -31,6 +31,8 @@ class RetentionCleanupWorker @AssistedInject constructor(
         runCatching {
             val removed = notificationRepository.purgeOlderThan(cutoff)
             digestRepository.deleteOlderThan(cutoff)
+            // Drop any digest left with no notifications so History never shows a phantom/under-counted batch.
+            digestRepository.deleteEmptyDigests()
             realtimeStats.purgeOlderThan(cutoff)
             removed
         }.onFailure { Log.w(TAG, "Retention cleanup failed", it) }

@@ -31,11 +31,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -64,7 +66,7 @@ import com.notdigest.app.service.NotificationAccessState
 import com.notdigest.app.ui.theme.Spacing
 import kotlinx.coroutines.launch
 
-private const val PAGE_COUNT = 7
+private const val PAGE_COUNT = 8
 
 @Composable
 fun OnboardingScreen(
@@ -75,6 +77,10 @@ fun OnboardingScreen(
     val pagerState = rememberPagerState(pageCount = { PAGE_COUNT })
     val scope = rememberCoroutineScope()
     val selectedPreset by viewModel.selectedPreset.collectAsStateWithLifecycle()
+    val driveRestore by viewModel.driveRestore.collectAsStateWithLifecycle()
+    val driveSignInLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result -> viewModel.onDriveSignInResult(result.data) }
 
     var accessGranted by remember { mutableStateOf(NotificationAccessState.isGranted(context)) }
     var batteryExempt by remember { mutableStateOf(BatteryOptimizationState.isIgnoring(context)) }
@@ -140,11 +146,16 @@ fun OnboardingScreen(
                         }
                     },
                 )
-                5 -> SchedulePresetPage(
+                5 -> RestoreDataPage(
+                    state = driveRestore,
+                    onConnect = { driveSignInLauncher.launch(viewModel.driveSignInIntent()) },
+                    onRestore = { viewModel.restoreAndFinish(onFinished) },
+                )
+                6 -> SchedulePresetPage(
                     selected = selectedPreset,
                     onSelect = viewModel::selectPreset,
                 )
-                6 -> ModesExplainedPage()
+                7 -> ModesExplainedPage()
             }
         }
 
@@ -273,6 +284,58 @@ private fun BackgroundReliabilityPage(onAllow: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                 )
+            }
+        },
+    )
+}
+
+@Composable
+private fun RestoreDataPage(state: DriveRestoreUi, onConnect: () -> Unit, onRestore: () -> Unit) {
+    OnboardingPage(
+        icon = Icons.Filled.CloudDownload,
+        title = "Coming back? Restore your setup",
+        body = "Reinstalling, or on a new phone? Sign in with the same Google account to bring back your app classifications, schedules and settings from your last backup.",
+        extra = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                when {
+                    state.busy -> CircularProgressIndicator()
+                    state.email == null -> {
+                        Button(onClick = onConnect) { Text("Connect Google Drive") }
+                        Spacer(Modifier.height(Spacing.md))
+                        Text(
+                            "New here? Just tap Next to start fresh.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    state.backupFound -> {
+                        Text(
+                            "Backup found for ${state.email}.",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                        )
+                        Spacer(Modifier.height(Spacing.md))
+                        Button(onClick = onRestore) { Text("Restore & finish") }
+                        Spacer(Modifier.height(Spacing.sm))
+                        Text(
+                            "Brings back your previous setup, then takes you in.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    else -> {
+                        Text(
+                            "Signed in as ${state.email}, but no backup was found — you're starting fresh. Tap Next to continue.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
             }
         },
     )

@@ -16,7 +16,7 @@ on:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write  # needed to publish a GitHub Release on tag pushes
 
 jobs:
   build:
@@ -73,3 +73,23 @@ jobs:
           name: notification-digest-aab
           path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
+
+      # --- Publish a GitHub Release (only when a v* tag is pushed) ---
+      # Renames the build outputs to friendly, versioned filenames, then attaches them to a
+      # Release so the APK has a clean, predictable download URL — no local tooling needed.
+      - name: Stage release artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          mkdir -p release-out
+          cp app/build/outputs/apk/release/*.apk "release-out/notification-digest-${GITHUB_REF_NAME}.apk"
+          cp app/build/outputs/bundle/release/*.aab "release-out/notification-digest-${GITHUB_REF_NAME}.aab"
+          ls -l release-out
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          files: release-out/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true

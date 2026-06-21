@@ -31,6 +31,13 @@ interface NotificationRepository {
 
     suspend fun insert(notification: AppNotification): Long
 
+    /**
+     * Insert a freshly captured notification, de-duplicating by system key: if an undelivered
+     * notification with the same key already exists (the app re-posted/updated it), it is replaced
+     * rather than stacked. Returns the row id.
+     */
+    suspend fun upsertPending(notification: AppNotification): Long
+
     suspend fun markRead(ids: List<Long>)
 
     suspend fun markAllPendingRead()

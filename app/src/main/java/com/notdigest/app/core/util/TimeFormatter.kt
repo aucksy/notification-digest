@@ -48,6 +48,30 @@ object TimeFormatter {
         return "${z.format(dayMonth)}, ${z.toLocalTime().format(timeFmt)}"
     }
 
+    /** Delivery-group label, e.g. "Today, 9:00 AM", "Yesterday, 6:00 PM", or "5 Jun, 12:00 PM". */
+    fun deliveredLabel(
+        millis: Long,
+        nowMillis: Long,
+        is24Hour: Boolean,
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): String {
+        val d = Instant.ofEpochMilli(millis).atZone(zone)
+        val today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
+        val timeStr = d.toLocalTime().format(if (is24Hour) time24 else time12)
+        return when (d.toLocalDate()) {
+            today -> "Today, $timeStr"
+            today.minusDays(1) -> "Yesterday, $timeStr"
+            else -> "${d.format(dayMonth)}, $timeStr"
+        }
+    }
+
+    /** Short date label for the inbox date selector: "Today", "Yesterday", or "5 Jun". */
+    fun dateChip(date: java.time.LocalDate, today: java.time.LocalDate): String = when (date) {
+        today -> "Today"
+        today.minusDays(1) -> "Yesterday"
+        else -> date.format(if (date.year == today.year) dayMonth else dayMonthYear)
+    }
+
     /** Forward-looking label, e.g. "3:00 PM", "Tomorrow, 9:00 AM", or "5 Jun, 9:00 AM". */
     fun whenLabel(
         targetMillis: Long,

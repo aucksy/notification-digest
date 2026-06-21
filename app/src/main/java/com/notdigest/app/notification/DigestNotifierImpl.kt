@@ -38,9 +38,9 @@ class DigestNotifierImpl @Inject constructor(
             .setBigContentTitle(title)
             .setSummaryText(summary)
 
+        // A summary, not a full transcript: just app · count per app.
         digest.groups.take(MAX_LINES).forEach { group ->
-            val preview = group.notifications.firstOrNull()?.preview.orEmpty()
-            style.addLine("${group.appName} (${group.count})  $preview")
+            style.addLine("${group.appName} · ${group.count}")
         }
         if (digest.groups.size > MAX_LINES) {
             style.addLine("+${digest.groups.size - MAX_LINES} more apps")
@@ -101,6 +101,6 @@ class DigestNotifierImpl @Inject constructor(
     }
 
     private companion object {
-        const val MAX_LINES = 7
+        const val MAX_LINES = 4
     }
 }

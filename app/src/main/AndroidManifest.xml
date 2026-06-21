@@ -58,9 +58,10 @@
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
-            <meta-data
-                android:name="android.service.notification.default_filter_types"
-                android:value="conversation|alerting" />
+            <!--
+              No default_filter_types: that would exclude SILENT notifications (the ones some OEMs
+              like ColorOS show in a "Silent" tray). We want to capture every type.
+            -->
         </service>
 
         <!-- Handles digest-notification action buttons (Deliver Now / Review / dismiss). -->

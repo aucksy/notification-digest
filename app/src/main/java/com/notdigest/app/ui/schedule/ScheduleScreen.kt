@@ -6,17 +6,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -97,17 +92,13 @@ fun ScheduleScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
-                itemsIndexed(schedules, key = { _, it -> it.id }) { index, schedule ->
+                items(schedules, key = { it.id }) { schedule ->
                     ScheduleRow(
                         schedule = schedule,
                         is24Hour = is24Hour,
-                        isFirst = index == 0,
-                        isLast = index == schedules.lastIndex,
                         onEdit = { dialog = ScheduleDialog.Edit(schedule) },
                         onToggle = { viewModel.setEnabled(schedule, it) },
                         onDelete = { viewModel.delete(schedule) },
-                        onMoveUp = { viewModel.move(index, index - 1) },
-                        onMoveDown = { viewModel.move(index, index + 1) },
                     )
                 }
             }
@@ -139,19 +130,13 @@ fun ScheduleScreen(
 private fun ScheduleRow(
     schedule: Schedule,
     is24Hour: Boolean,
-    isFirst: Boolean,
-    isLast: Boolean,
     onEdit: () -> Unit,
     onToggle: (Boolean) -> Unit,
     onDelete: () -> Unit,
-    onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit,
 ) {
     NotDigestCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(
-                Modifier.weight(1f).clickable(onClick = onEdit),
-            ) {
+            Column(Modifier.weight(1f).clickable(onClick = onEdit)) {
                 Text(
                     TimeFormatter.clockOf(schedule.hour, schedule.minute, is24Hour),
                     style = MaterialTheme.typography.headlineSmall,
@@ -162,14 +147,6 @@ private fun ScheduleRow(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            }
-            Column {
-                IconButton(onClick = onMoveUp, enabled = !isFirst) {
-                    Icon(Icons.Filled.KeyboardArrowUp, "Move up", modifier = Modifier.size(20.dp))
-                }
-                IconButton(onClick = onMoveDown, enabled = !isLast) {
-                    Icon(Icons.Filled.KeyboardArrowDown, "Move down", modifier = Modifier.size(20.dp))
-                }
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.error)

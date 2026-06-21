@@ -9,10 +9,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ScheduleDao {
 
-    @Query("SELECT * FROM schedules ORDER BY sortOrder ASC, minuteOfDay ASC")
+    @Query("SELECT * FROM schedules ORDER BY minuteOfDay ASC")
     fun observeAll(): Flow<List<ScheduleEntity>>
 
-    @Query("SELECT * FROM schedules ORDER BY sortOrder ASC, minuteOfDay ASC")
+    @Query("SELECT * FROM schedules ORDER BY minuteOfDay ASC")
     suspend fun snapshot(): List<ScheduleEntity>
 
     @Upsert

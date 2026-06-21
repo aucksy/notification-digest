@@ -1,6 +1,8 @@
 package com.notdigest.app.ui.inbox
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -15,15 +17,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Visibility
@@ -34,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -51,12 +55,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.notdigest.app.core.util.TimeFormatter
 import com.notdigest.app.domain.model.AppNotification
+import com.notdigest.app.ui.LocalHapticsEnabled
+import com.notdigest.app.ui.LocalIs24Hour
 import com.notdigest.app.ui.components.AppIcon
 import com.notdigest.app.ui.components.CountPill
 import com.notdigest.app.ui.components.EmptyState
@@ -66,6 +78,7 @@ import com.notdigest.app.ui.theme.NotDigestTheme
 import com.notdigest.app.ui.theme.Spacing
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 @Composable
 fun InboxScreen(
@@ -74,16 +87,18 @@ fun InboxScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val is24Hour = LocalIs24Hour.current
+    val haptic = LocalHapticFeedback.current
+    val hapticsOn = LocalHapticsEnabled.current
+    val buzz = { if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress) }
 
-    // Snackbars. Messages carrying an `undo` hover for ~2s with an Undo action.
     LaunchedEffect(Unit) {
         viewModel.messages.collect { msg ->
             val undo = msg.undo
             if (undo != null) {
                 val autoDismiss = scope.launch {
-                    delay(2_000)
+                    delay(3_000)
                     snackbarHostState.currentSnackbarData?.dismiss()
                 }
                 val result = snackbarHostState.showSnackbar(
@@ -100,16 +115,14 @@ fun InboxScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
-        Column(
-            Modifier.fillMaxSize().padding(top = contentPadding.calculateTopPadding()),
-        ) {
+        Column(Modifier.fillMaxSize().padding(top = contentPadding.calculateTopPadding())) {
             if (state.selectionMode) {
                 SelectionBar(
                     count = state.selectedIds.size,
                     onClose = viewModel::clearSelection,
                     onSelectAll = viewModel::selectAll,
                     onMarkRead = { viewModel.markRead(state.selectedIds.toList()) },
-                    onDelete = { viewModel.delete(state.selectedIds.toList()) },
+                    onDelete = { buzz(); viewModel.delete(state.selectedIds.toList()) },
                 )
             } else {
                 InboxHeader(deliveredCount = state.totalDelivered, onMarkAllRead = viewModel::markAllRead)
@@ -117,33 +130,41 @@ fun InboxScreen(
                     ArchivedBanner(
                         archivedCount = state.archivedCount,
                         isDelivering = state.isDelivering,
-                        onSeeNow = viewModel::seeNow,
+                        onSeeNow = { buzz(); viewModel.seeNow() },
                     )
                 }
                 SearchField(query = state.query, onQueryChange = viewModel::onQueryChange)
                 if (state.apps.isNotEmpty()) {
                     AppFilterChips(apps = state.apps, selected = state.appFilter, onSelect = viewModel::setAppFilter)
                 }
+                if (state.availableDates.size > 1) {
+                    DateChips(
+                        dates = state.availableDates,
+                        selected = state.selectedDate,
+                        onSelect = viewModel::setSelectedDate,
+                    )
+                }
             }
 
-            if (state.items.isEmpty()) {
+            if (state.isEmpty) {
                 EmptyState(
                     icon = Icons.Filled.Inbox,
                     title = when {
                         state.query.isNotBlank() -> "No matches"
+                        state.selectedDate != null -> "Nothing on this date"
                         state.archivedCount > 0 -> "Nothing here yet"
                         else -> "Inbox zero"
                     },
                     subtitle = when {
                         state.query.isNotBlank() -> "Try a different search."
-                        state.archivedCount > 0 -> "Tap See Now to bring your archived notifications here."
-                        else -> "Delivered notifications live here to read any time. Archived ones stay hidden until you See Now."
+                        state.selectedDate != null -> "Pick another date, or tap All dates."
+                        state.archivedCount > 0 -> "Tap See All Notifications Now to bring your archived ones here."
+                        else -> "Delivered notifications live here, grouped by delivery. Archived ones stay hidden until you choose to see them."
                     },
                     modifier = Modifier.padding(top = Spacing.xl),
                 )
             } else {
                 LazyColumn(
-                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = Spacing.screen,
@@ -153,28 +174,53 @@ fun InboxScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(Spacing.xs),
                 ) {
-                    items(state.items, key = { it.id }) { notification ->
-                        SwipeableNotificationRow(
-                            notification = notification,
-                            selectionMode = state.selectionMode,
-                            selected = notification.id in state.selectedIds,
-                            onOpen = { viewModel.open(notification) },
-                            onDelete = { viewModel.delete(listOf(notification.id)) },
-                            onMakeRealtime = { viewModel.makeAppRealtime(notification.packageName, notification.appName) },
-                            onToggleSelect = { viewModel.toggleSelection(notification.id) },
-                            onLongPress = { viewModel.startSelection(notification.id) },
-                        )
+                    state.groups.forEach { group ->
+                        item(key = "header-${group.digestId}") {
+                            GroupHeader(
+                                group = group,
+                                is24Hour = is24Hour,
+                                onToggle = { viewModel.setGroupExpanded(group.digestId, !group.expanded) },
+                            )
+                        }
+                        if (group.expanded) {
+                            items(group.notifications, key = { it.id }) { notification ->
+                                SwipeableNotificationRow(
+                                    notification = notification,
+                                    selectionMode = state.selectionMode,
+                                    selected = notification.id in state.selectedIds,
+                                    onOpen = { viewModel.open(notification) },
+                                    onDelete = { buzz(); viewModel.delete(listOf(notification.id)) },
+                                    onMakeRealtime = { buzz(); viewModel.makeAppRealtime(notification.packageName, notification.appName) },
+                                    onToggleSelect = { viewModel.toggleSelection(notification.id) },
+                                    onLongPress = { buzz(); viewModel.startSelection(notification.id) },
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
 
+        // Undo snackbar: larger action, lifted a bit higher above the nav bar.
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = contentPadding.calculateBottomPadding() + Spacing.sm),
-        )
+                .padding(bottom = contentPadding.calculateBottomPadding() + 56.dp),
+        ) { data ->
+            Snackbar(
+                modifier = Modifier.padding(horizontal = Spacing.md),
+                action = {
+                    data.visuals.actionLabel?.let { label ->
+                        TextButton(onClick = { data.performAction() }) {
+                            Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                },
+            ) {
+                Text(data.visuals.message, style = MaterialTheme.typography.bodyLarge)
+            }
+        }
     }
 }
 
@@ -197,32 +243,83 @@ private fun InboxHeader(deliveredCount: Int, onMarkAllRead: () -> Unit) {
     }
 }
 
-/** The only thing shown about archived (collected-but-unseen) notifications: a count + See Now. */
 @Composable
 private fun ArchivedBanner(archivedCount: Int, isDelivering: Boolean, onSeeNow: () -> Unit) {
     NotDigestCard(modifier = Modifier.padding(horizontal = Spacing.screen, vertical = Spacing.xs)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    "$archivedCount archived",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    "Hidden until you See Now",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        Text("$archivedCount archived", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+        Text("Hidden until you choose to see them", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.size(Spacing.md))
+        Button(onClick = onSeeNow, enabled = !isDelivering, modifier = Modifier.fillMaxWidth()) {
+            if (isDelivering) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+            } else {
+                Icon(Icons.Filled.Visibility, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(Spacing.sm))
+                Text("See All Notifications Now")
             }
-            Button(onClick = onSeeNow, enabled = !isDelivering) {
-                if (isDelivering) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                } else {
-                    Icon(Icons.Filled.Visibility, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(Spacing.sm))
-                    Text("See Now")
-                }
-            }
+        }
+    }
+}
+
+@Composable
+private fun GroupHeader(group: DeliveryGroup, is24Hour: Boolean, onToggle: () -> Unit) {
+    val rotation by animateFloatAsState(if (group.expanded) 180f else 0f, label = "chevron")
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(vertical = Spacing.sm, horizontal = Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+    ) {
+        Text(
+            TimeFormatter.deliveredLabel(group.createdAt, System.currentTimeMillis(), is24Hour),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        if (group.isLatest) {
+            GroupBadge("Latest", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary)
+        }
+        if (group.isManual) {
+            GroupBadge("Manual", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
+        }
+        Spacer(Modifier.weight(1f))
+        CountPill(text = group.count.toString())
+        Icon(
+            Icons.Filled.ExpandMore,
+            contentDescription = if (group.expanded) "Collapse" else "Expand",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(22.dp).rotate(rotation),
+        )
+    }
+}
+
+@Composable
+private fun GroupBadge(text: String, container: Color, content: Color) {
+    Box(
+        modifier = Modifier.clip(RoundedCornerShape(50)).background(container).padding(horizontal = Spacing.sm, vertical = 1.dp),
+    ) {
+        Text(text, style = MaterialTheme.typography.labelSmall, color = content)
+    }
+}
+
+@Composable
+private fun DateChips(dates: List<LocalDate>, selected: LocalDate?, onSelect: (LocalDate?) -> Unit) {
+    val today = remember { LocalDate.now() }
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = Spacing.screen, vertical = Spacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+    ) {
+        FilterChip(
+            selected = selected == null,
+            onClick = { onSelect(null) },
+            label = { Text("All dates") },
+            shape = MaterialTheme.shapes.large,
+        )
+        dates.forEach { date ->
+            FilterChip(
+                selected = selected == date,
+                onClick = { onSelect(date) },
+                label = { Text(TimeFormatter.dateChip(date, today)) },
+                shape = MaterialTheme.shapes.large,
+            )
         }
     }
 }
@@ -281,8 +378,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
 @Composable
 private fun AppFilterChips(apps: List<AppFilterOption>, selected: String?, onSelect: (String?) -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-            .padding(horizontal = Spacing.screen, vertical = Spacing.xs),
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = Spacing.screen, vertical = Spacing.xs),
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         apps.forEach { app ->
@@ -311,8 +407,8 @@ private fun SwipeableNotificationRow(
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> { onMakeRealtime(); false } // snap back; app moved to Real-Time
-                SwipeToDismissBoxValue.EndToStart -> { onDelete(); true } // remove (with Undo)
+                SwipeToDismissBoxValue.StartToEnd -> { onMakeRealtime(); false }
+                SwipeToDismissBoxValue.EndToStart -> { onDelete(); true }
                 SwipeToDismissBoxValue.Settled -> false
             }
         },
@@ -358,7 +454,6 @@ private fun SwipeableNotificationRow(
     }
 }
 
-/** Swipe reveal: right = "Real-Time" (move app out of Digest), left = "Delete". Icon + label. */
 @Composable
 private fun SwipeBackground(direction: SwipeToDismissBoxValue) {
     when (direction) {
@@ -381,16 +476,9 @@ private fun SwipeBackground(direction: SwipeToDismissBoxValue) {
 }
 
 @Composable
-private fun SwipeReveal(
-    color: Color,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    alignment: Alignment,
-    iconFirst: Boolean,
-) {
+private fun SwipeReveal(color: Color, icon: ImageVector, label: String, alignment: Alignment, iconFirst: Boolean) {
     Box(
-        modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.large).background(color)
-            .padding(horizontal = Spacing.xl),
+        modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.large).background(color).padding(horizontal = Spacing.xl),
         contentAlignment = alignment,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {

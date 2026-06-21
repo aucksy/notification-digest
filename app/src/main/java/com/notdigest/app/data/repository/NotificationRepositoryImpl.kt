@@ -42,6 +42,13 @@ class NotificationRepositoryImpl @Inject constructor(
 
     override suspend fun insert(notification: AppNotification): Long = dao.insert(notification.toEntity())
 
+    override suspend fun upsertPending(notification: AppNotification): Long {
+        notification.sbnKey?.let { key ->
+            dao.pendingIdByKey(key)?.let { existingId -> dao.delete(listOf(existingId)) }
+        }
+        return dao.insert(notification.toEntity())
+    }
+
     override suspend fun markRead(ids: List<Long>) = dao.markRead(ids)
 
     override suspend fun markAllPendingRead() = dao.markAllPendingRead()

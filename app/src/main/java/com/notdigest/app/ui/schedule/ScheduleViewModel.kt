@@ -60,11 +60,4 @@ class ScheduleViewModel @Inject constructor(
             scheduler.reschedule()
         }
     }
-
-    fun move(fromIndex: Int, toIndex: Int) {
-        val current = schedules.value
-        if (fromIndex !in current.indices || toIndex !in current.indices) return
-        val reordered = current.toMutableList().apply { add(toIndex, removeAt(fromIndex)) }
-        viewModelScope.launch { scheduleRepository.reorder(reordered.map { it.id }) }
-    }
 }

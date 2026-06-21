@@ -19,8 +19,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.notdigest.app.ui.LocalHapticsEnabled
 
 /**
  * A compact, balanced two-segment control for switching an app between Digest and Real-Time.
@@ -33,6 +36,14 @@ fun ModeToggle(
     onChange: (com.notdigest.app.domain.model.DigestMode) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptic = LocalHapticFeedback.current
+    val hapticsOn = LocalHapticsEnabled.current
+    val change: (com.notdigest.app.domain.model.DigestMode) -> Unit = { target ->
+        if (target != mode) {
+            if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onChange(target)
+        }
+    }
     Row(
         modifier = modifier
             .width(148.dp)
@@ -43,10 +54,10 @@ fun ModeToggle(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Segment("Digest", mode == com.notdigest.app.domain.model.DigestMode.DIGEST) {
-            onChange(com.notdigest.app.domain.model.DigestMode.DIGEST)
+            change(com.notdigest.app.domain.model.DigestMode.DIGEST)
         }
         Segment("Real-Time", mode == com.notdigest.app.domain.model.DigestMode.REALTIME) {
-            onChange(com.notdigest.app.domain.model.DigestMode.REALTIME)
+            change(com.notdigest.app.domain.model.DigestMode.REALTIME)
         }
     }
 }

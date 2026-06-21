@@ -110,9 +110,9 @@ fun HomeScreen(
                         icon = Icons.Filled.DoneAll,
                         title = if (state.stats.waitingCount == 0) "Nothing collecting" else "Collecting quietly",
                         subtitle = if (state.stats.waitingCount == 0) {
-                            "When your Digest apps send notifications, they stay here out of sight until you See Now."
+                            "When your Digest apps send notifications, they stay here out of sight until you tap See All Notifications Now."
                         } else {
-                            "${state.stats.waitingCount} archived, out of sight. Tap See Now, or they arrive at your next digest."
+                            "${state.stats.waitingCount} archived, out of sight. Tap See All Notifications Now, or they arrive at your next digest."
                         },
                     )
                 }
@@ -184,7 +184,7 @@ private fun HeroCard(
             } else {
                 Icon(Icons.Filled.Visibility, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.size(Spacing.sm))
-                Text("See Now", fontWeight = FontWeight.SemiBold)
+                Text("See All Notifications Now", fontWeight = FontWeight.SemiBold)
             }
         }
     }

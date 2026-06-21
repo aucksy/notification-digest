@@ -12,6 +12,10 @@ interface NotificationDao {
     @Insert
     suspend fun insert(entity: NotificationEntity): Long
 
+    /** Id of an undelivered notification with the same system key (a re-post/update of the same one). */
+    @Query("SELECT id FROM notifications WHERE sbnKey = :key AND isDelivered = 0 LIMIT 1")
+    suspend fun pendingIdByKey(key: String): Long?
+
     // --- Inbox (pending == not yet delivered) ---
 
     @Query("SELECT * FROM notifications WHERE isDelivered = 0 ORDER BY postedAt DESC")

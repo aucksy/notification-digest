@@ -66,7 +66,11 @@ fun NotDigestNavHost(
 
     LaunchedEffect(deepLinkRoute) {
         val route = deepLinkRoute ?: return@LaunchedEffect
-        navController.navigate(route) { launchSingleTop = true }
+        if (route in NavRoutes.BOTTOM_BAR) {
+            navController.navigateTab(route)
+        } else {
+            navController.navigate(route) { launchSingleTop = true }
+        }
         onDeepLinkConsumed()
     }
 

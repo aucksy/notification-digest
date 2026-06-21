@@ -17,7 +17,9 @@ import com.notdigest.app.core.Constants
 import com.notdigest.app.data.system.AppIconLoader
 import com.notdigest.app.ui.AppViewModel
 import com.notdigest.app.ui.LocalAppIconLoader
+import com.notdigest.app.ui.LocalHapticsEnabled
 import com.notdigest.app.ui.LocalIs24Hour
+import com.notdigest.app.ui.navigation.NavRoutes
 import com.notdigest.app.ui.navigation.NotDigestNavHost
 import com.notdigest.app.ui.theme.NotDigestTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -34,7 +36,7 @@ class MainActivity : ComponentActivity() {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        consumeDeepLink(intent)
+        consumeIntent(intent, isRelaunch = false)
 
         setContent {
             val appViewModel: AppViewModel = hiltViewModel()
@@ -47,6 +49,7 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(
                     LocalIs24Hour provides is24Hour,
                     LocalAppIconLoader provides appIconLoader,
+                    LocalHapticsEnabled provides state.hapticsEnabled,
                 ) {
                     if (!state.loading) {
                         NotDigestNavHost(
@@ -63,12 +66,18 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        consumeDeepLink(intent)
+        consumeIntent(intent, isRelaunch = true)
     }
 
-    private fun consumeDeepLink(intent: Intent?) {
-        if (intent?.action == Constants.ACTION_OPEN_ROUTE) {
-            intent.getStringExtra(Constants.EXTRA_ROUTE)?.let { deepLinkRoute.value = it }
+    private fun consumeIntent(intent: Intent?, isRelaunch: Boolean) {
+        when {
+            // A notification deep link.
+            intent?.action == Constants.ACTION_OPEN_ROUTE ->
+                intent.getStringExtra(Constants.EXTRA_ROUTE)?.let { deepLinkRoute.value = it }
+            // Relaunched from the launcher / recents → always land on Home.
+            isRelaunch && intent?.action == Intent.ACTION_MAIN &&
+                intent.hasCategory(Intent.CATEGORY_LAUNCHER) ->
+                deepLinkRoute.value = NavRoutes.HOME
         }
     }
 }

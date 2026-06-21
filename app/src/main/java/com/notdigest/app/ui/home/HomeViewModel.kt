@@ -67,7 +67,7 @@ class HomeViewModel @Inject constructor(
     fun seeNow() {
         viewModelScope.launch {
             isDelivering.value = true
-            val result = runCatching { deliverDigestUseCase(DigestType.MANUAL) }.getOrNull()
+            val result = runCatching { deliverDigestUseCase(DigestType.MANUAL, postNotification = false) }.getOrNull()
             isDelivering.value = false
             eventChannel.send(
                 when (result) {

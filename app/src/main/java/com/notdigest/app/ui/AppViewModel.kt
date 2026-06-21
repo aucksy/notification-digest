@@ -15,6 +15,7 @@ data class AppUiState(
     val loading: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
+    val hapticsEnabled: Boolean = true,
     val onboardingComplete: Boolean = false,
 ) {
     val startDestination: String
@@ -33,6 +34,7 @@ class AppViewModel @Inject constructor(
                 loading = false,
                 themeMode = prefs.themeMode,
                 dynamicColor = prefs.dynamicColor,
+                hapticsEnabled = prefs.hapticsEnabled,
                 onboardingComplete = prefs.onboardingComplete,
             )
         }

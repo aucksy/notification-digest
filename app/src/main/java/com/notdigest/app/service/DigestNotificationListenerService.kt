@@ -84,7 +84,7 @@ class DigestNotificationListenerService : NotificationListenerService() {
     /** Fast path: the notification is already cancelled; just store it and update the status. */
     private suspend fun persist(captured: CapturedNotification) {
         try {
-            notificationRepository.insert(captured.toDomain())
+            notificationRepository.upsertPending(captured.toDomain())
             updateStatusNotification()
         } catch (t: Throwable) {
             Log.w(TAG, "Failed to persist notification from ${captured.packageName}", t)
@@ -99,7 +99,7 @@ class DigestNotificationListenerService : NotificationListenerService() {
                 pendingIntentStore.put(captured.key, it, captured.actionIntents)
             }
             cancelNotification(captured.key)
-            notificationRepository.insert(captured.toDomain())
+            notificationRepository.upsertPending(captured.toDomain())
             updateStatusNotification()
         } catch (t: Throwable) {
             Log.w(TAG, "Failed to handle notification from ${captured.packageName}", t)

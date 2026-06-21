@@ -29,7 +29,12 @@ class DeliverDigestUseCase @Inject constructor(
     private val notifier: DigestNotifier,
     private val time: TimeProvider,
 ) {
-    suspend operator fun invoke(type: DigestType): DeliverResult {
+    /**
+     * @param postNotification when false (in-app "See All Notifications Now"), the digest is created
+     * and revealed in the inbox WITHOUT posting a system notification — the user is already looking
+     * at the app, so re-notifying would be noise.
+     */
+    suspend operator fun invoke(type: DigestType, postNotification: Boolean = true): DeliverResult {
         val pending = notificationRepository.pendingSnapshot()
         if (pending.isEmpty()) return DeliverResult.Empty
 
@@ -43,12 +48,14 @@ class DeliverDigestUseCase @Inject constructor(
         )
         notificationRepository.assignToDigest(pending.map { it.id }, digestId, now)
 
-        notifier.postDigest(
-            DigestWithItems(
-                digest = Digest(digestId, now, type, pending.size, groups.size),
-                groups = groups,
-            ),
-        )
+        if (postNotification) {
+            notifier.postDigest(
+                DigestWithItems(
+                    digest = Digest(digestId, now, type, pending.size, groups.size),
+                    groups = groups,
+                ),
+            )
+        }
         notifier.clearCollectingStatus()
 
         return DeliverResult.Delivered(digestId, pending.size, groups.size)

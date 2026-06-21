@@ -8,3 +8,6 @@ val LocalIs24Hour = staticCompositionLocalOf { false }
 
 /** App-icon loader, provided at the activity root so any composable can render app icons. */
 val LocalAppIconLoader = staticCompositionLocalOf<AppIconLoader?> { null }
+
+/** Whether haptic feedback is enabled (user setting), provided at the activity root. */
+val LocalHapticsEnabled = staticCompositionLocalOf { true }

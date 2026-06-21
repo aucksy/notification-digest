@@ -77,9 +77,16 @@ fun SettingsScreen(
 
     var accessGranted by remember { mutableStateOf(NotificationAccessState.isGranted(context)) }
     var batteryExempt by remember { mutableStateOf(BatteryOptimizationState.isIgnoring(context)) }
+    // After the standard battery dialog is dismissed, take the user straight to their phone's own
+    // (OEM) background-control screen — the second setting only they can change.
+    var pendingOemGuide by remember { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         accessGranted = NotificationAccessState.isGranted(context)
         batteryExempt = BatteryOptimizationState.isIgnoring(context)
+        if (pendingOemGuide) {
+            pendingOemGuide = false
+            openAppBatterySettings(context)
+        }
     }
 
     val createBackupLauncher = rememberLauncherForActivityResult(
@@ -134,23 +141,42 @@ fun SettingsScreen(
                 }
             }
 
-            // --- Keep running reliably (battery optimization) ---
-            if (!batteryExempt) {
-                SettingsGroup(title = "Keep running reliably") {
-                    NotDigestCard {
-                        Text("Allow background running", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                        Text(
-                            "Your phone may stop Notification Digest in the background. When it does, notifications can slip through to your shade and tapped notifications open the app's home instead of the right screen. Allowing it to keep running fixes both.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    NavRow(
-                        title = "Allow background running",
-                        subtitle = "Exempt from battery optimization — one tap",
-                        onClick = { requestIgnoreBatteryOptimizations(context) },
+            // --- Keep running reliably (standard exemption + the OEM's own background control) ---
+            SettingsGroup(title = "Keep running reliably") {
+                NotDigestCard {
+                    Text(
+                        "Your phone can stop Notification Digest in the background — then notifications slip through and tapped ones open the app's home instead of the right screen. Two settings keep it reliable:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(Spacing.sm))
+                    Text(
+                        if (batteryExempt) "1.  Battery optimization — allowed ✓" else "1.  Battery optimization — not yet allowed",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (batteryExempt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        "2.  Your phone's own battery control (OnePlus / Oppo / Realme, etc.) — set Notification Digest to \"Allow background activity\". Only you can change this one.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
+                NavRow(
+                    title = "Allow background running",
+                    subtitle = if (batteryExempt) {
+                        "Step 1 done — opens battery settings for step 2"
+                    } else {
+                        "Allows step 1, then opens battery settings for step 2"
+                    },
+                    onClick = {
+                        if (batteryExempt) {
+                            openAppBatterySettings(context)
+                        } else {
+                            pendingOemGuide = true
+                            requestIgnoreBatteryOptimizations(context)
+                        }
+                    },
+                )
             }
 
             // --- Appearance ---
@@ -320,6 +346,19 @@ private fun openListenerSettings(context: android.content.Context) {
     context.startActivity(
         Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
     )
+}
+
+/**
+ * Open this app's system details page — one tap away from the OEM "App battery management" / "Power
+ * consumption controls" screen where the user picks "Allow background activity". There's no public
+ * deep link to the manufacturer's own control, so this is the closest reliable landing spot.
+ */
+private fun openAppBatterySettings(context: android.content.Context) {
+    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+        data = Uri.fromParts("package", context.packageName, null)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    runCatching { context.startActivity(intent) }
 }
 
 /** One-tap system dialog to exempt the app from battery optimization; falls back to the settings list. */

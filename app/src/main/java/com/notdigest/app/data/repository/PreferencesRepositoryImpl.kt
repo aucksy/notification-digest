@@ -12,6 +12,7 @@ import com.notdigest.app.domain.model.ThemeMode
 import com.notdigest.app.domain.model.UserPreferences
 import com.notdigest.app.domain.repository.PreferencesRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -34,6 +35,7 @@ class PreferencesRepositoryImpl @Inject constructor(
         val CRITICAL_DEFAULTS_VERSION = intPreferencesKey("critical_defaults_version")
         val DRIVE_AUTO = booleanPreferencesKey("drive_auto_backup")
         val DRIVE_LAST_BACKUP = longPreferencesKey("drive_last_backup_at")
+        val LIFETIME_AVOIDED = longPreferencesKey("lifetime_avoided")
     }
 
     override val preferences: Flow<UserPreferences> = dataStore.data.map { p ->
@@ -47,7 +49,9 @@ class PreferencesRepositoryImpl @Inject constructor(
             statusNotificationEnabled = p[Keys.STATUS_NOTIF] ?: false,
             onboardingComplete = p[Keys.ONBOARDING] ?: false,
         )
-    }
+        // Dedupe so unrelated key writes (e.g. the frequent lifetime-avoided counter) don't re-emit
+        // identical preferences and needlessly re-trigger the config backup flow.
+    }.distinctUntilChanged()
 
     override suspend fun snapshot(): UserPreferences = preferences.first()
 
@@ -94,16 +98,28 @@ class PreferencesRepositoryImpl @Inject constructor(
     }
 
     override val driveAutoBackup: Flow<Boolean> =
-        dataStore.data.map { it[Keys.DRIVE_AUTO] ?: false }
+        dataStore.data.map { it[Keys.DRIVE_AUTO] ?: false }.distinctUntilChanged()
 
     override suspend fun setDriveAutoBackup(enabled: Boolean) {
         dataStore.edit { it[Keys.DRIVE_AUTO] = enabled }
     }
 
     override val driveLastBackupAt: Flow<Long> =
-        dataStore.data.map { it[Keys.DRIVE_LAST_BACKUP] ?: 0L }
+        dataStore.data.map { it[Keys.DRIVE_LAST_BACKUP] ?: 0L }.distinctUntilChanged()
 
     override suspend fun setDriveLastBackupAt(millis: Long) {
         dataStore.edit { it[Keys.DRIVE_LAST_BACKUP] = millis }
+    }
+
+    override val lifetimeAvoided: Flow<Long> =
+        dataStore.data.map { it[Keys.LIFETIME_AVOIDED] ?: 0L }.distinctUntilChanged()
+
+    override suspend fun addLifetimeAvoided(count: Int) {
+        if (count <= 0) return
+        dataStore.edit { it[Keys.LIFETIME_AVOIDED] = (it[Keys.LIFETIME_AVOIDED] ?: 0L) + count }
+    }
+
+    override suspend fun setLifetimeAvoided(value: Long) {
+        dataStore.edit { it[Keys.LIFETIME_AVOIDED] = value }
     }
 }

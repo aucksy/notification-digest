@@ -11,4 +11,6 @@ data class NotificationStats(
     val totalAvoided: Long = 0L,
     val deliveredToday: Int = 0,
     val realtimeAppCount: Int = 0,
+    /** Monotonic lifetime count of interruptions avoided — survives retention purges and reinstalls. */
+    val lifetimeAvoided: Long = 0L,
 )

@@ -5,6 +5,7 @@ import com.notdigest.app.data.local.dao.AppRuleDao
 import com.notdigest.app.data.local.dao.NotificationDao
 import com.notdigest.app.domain.model.DigestMode
 import com.notdigest.app.domain.model.NotificationStats
+import com.notdigest.app.domain.repository.PreferencesRepository
 import com.notdigest.app.domain.repository.StatsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -16,6 +17,7 @@ import javax.inject.Singleton
 class StatsRepositoryImpl @Inject constructor(
     private val notificationDao: NotificationDao,
     private val appRuleDao: AppRuleDao,
+    private val preferencesRepository: PreferencesRepository,
     private val time: TimeProvider,
 ) : StatsRepository {
 
@@ -48,7 +50,11 @@ class StatsRepositoryImpl @Inject constructor(
             Partial(pending, capturedToday, capturedWeek, deliveredToday, realtime)
         }
 
-        return combine(partial, notificationDao.observeTotal()) { p, total ->
+        return combine(
+            partial,
+            notificationDao.observeTotal(),
+            preferencesRepository.lifetimeAvoided,
+        ) { p, total, lifetime ->
             NotificationStats(
                 waitingCount = p.pending,
                 batchedToday = p.capturedToday,
@@ -56,6 +62,7 @@ class StatsRepositoryImpl @Inject constructor(
                 totalAvoided = total,
                 deliveredToday = p.deliveredToday,
                 realtimeAppCount = p.realtime,
+                lifetimeAvoided = lifetime,
             )
         }
     }

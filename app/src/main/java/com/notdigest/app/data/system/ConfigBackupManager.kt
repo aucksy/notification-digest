@@ -60,9 +60,14 @@ class ConfigBackupManager @Inject constructor(
             appRuleRepository.observeRules(),
             scheduleRepository.observeSchedules(),
             preferencesRepository.preferences,
-        ) { rules, schedules, prefs -> Snapshot(rules, schedules, prefs) }
+        ) { rules, schedules, prefs -> Snapshot(rules, schedules, prefs, 0L) }
             .debounce(BACKUP_DEBOUNCE_MS)
-            .onEach { runCatching { write(it) } }
+            // Read the lifetime counter at write time rather than as a combine input, so its frequent
+            // increments don't each trigger a backup write.
+            .onEach { snap ->
+                val lifetime = preferencesRepository.lifetimeAvoided.first()
+                runCatching { write(snap.copy(lifetimeAvoided = lifetime)) }
+            }
             .flowOn(io)
             .launchIn(scope)
     }
@@ -98,6 +103,7 @@ class ConfigBackupManager @Inject constructor(
             }
         })
         put("prefs", snapshot.prefs.toJson())
+        put("lifetimeAvoided", snapshot.lifetimeAvoided)
     }
 
     /** Serialize the *current* configuration to a pretty JSON string for a user-chosen file backup. */
@@ -106,6 +112,7 @@ class ConfigBackupManager @Inject constructor(
             rules = appRuleRepository.observeRules().first(),
             schedules = scheduleRepository.snapshot(),
             prefs = preferencesRepository.preferences.first(),
+            lifetimeAvoided = preferencesRepository.lifetimeAvoided.first(),
         )
         buildJson(snapshot).toString(2)
     }
@@ -190,6 +197,13 @@ class ConfigBackupManager @Inject constructor(
             preferencesRepository.setStatusNotificationEnabled(p.optBoolean("status", true))
             preferencesRepository.setOnboardingComplete(p.optBoolean("onboarding", false))
         }
+
+        // Restore the lifetime "avoided" counter, never below the current value.
+        val restoredLifetime = json.optLong("lifetimeAvoided", 0L)
+        if (restoredLifetime > 0L) {
+            val current = preferencesRepository.lifetimeAvoided.first()
+            preferencesRepository.setLifetimeAvoided(maxOf(current, restoredLifetime))
+        }
     }
 
     private fun UserPreferences.toJson(): JSONObject = JSONObject()
@@ -205,6 +219,7 @@ class ConfigBackupManager @Inject constructor(
         val rules: List<AppRule>,
         val schedules: List<Schedule>,
         val prefs: UserPreferences,
+        val lifetimeAvoided: Long,
     )
 
     companion object {

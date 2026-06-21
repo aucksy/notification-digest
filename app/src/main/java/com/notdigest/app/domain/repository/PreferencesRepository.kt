@@ -28,6 +28,15 @@ interface PreferencesRepository {
     val driveLastBackupAt: Flow<Long>
     suspend fun setDriveLastBackupAt(millis: Long)
 
+    /**
+     * Lifetime count of interruptions avoided (every genuinely-new Digest notification suppressed).
+     * Monotonic — never decremented by retention purges — and included in the backup so the headline
+     * "avoided" figure survives a reinstall.
+     */
+    val lifetimeAvoided: Flow<Long>
+    suspend fun addLifetimeAvoided(count: Int)
+    suspend fun setLifetimeAvoided(value: Long)
+
     // --- Internal one-time flags (not part of the user-facing settings) ---
 
     /** Whether the cloud-backup config snapshot has already been imported on this install. */

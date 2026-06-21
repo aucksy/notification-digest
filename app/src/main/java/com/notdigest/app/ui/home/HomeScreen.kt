@@ -202,7 +202,11 @@ private fun HeroCard(
 private fun StatsRow(stats: NotificationStats, onOpenRealtimeApps: () -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md), modifier = Modifier.fillMaxWidth()) {
         StatTile(value = stats.batchedToday, label = "Archived today", modifier = Modifier.weight(1f))
-        StatTile(value = stats.avoidedLast7Days, label = "Avoided · 7 days", modifier = Modifier.weight(1f))
+        StatTile(
+            value = stats.lifetimeAvoided.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+            label = "Avoided · all time",
+            modifier = Modifier.weight(1f),
+        )
         StatTile(value = stats.realtimeAppCount, label = "Real-Time apps", modifier = Modifier.weight(1f), onClick = onOpenRealtimeApps)
     }
 }

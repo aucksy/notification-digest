@@ -278,13 +278,18 @@ private fun openListenerSettings(context: android.content.Context) {
     )
 }
 
-/** There's no public deep link to the assistant picker, so open notification settings and guide there. */
+/** Open the per-app notification settings list so the user can set a noisy app to Silent. */
 private fun openNotificationSettings(context: android.content.Context) {
-    val intent = Intent(Settings.ACTION_NOTIFICATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    // ACTION_ALL_APPS_NOTIFICATION_SETTINGS (API 31+). Use the raw action string so we don't depend
+    // on an SDK constant; fall back to top-level Settings on older versions or if it's unavailable.
+    val action = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        "android.settings.ALL_APPS_NOTIFICATION_SETTINGS"
+    } else {
+        Settings.ACTION_SETTINGS
+    }
+    val intent = Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     runCatching { context.startActivity(intent) }.onFailure {
-        runCatching {
-            context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }
+        runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }
 }
 

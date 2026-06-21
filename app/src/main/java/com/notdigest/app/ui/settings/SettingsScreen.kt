@@ -193,16 +193,16 @@ fun SettingsScreen(
             // --- Backup & restore ---
             SettingsGroup(title = "Backup & restore") {
                 NotDigestCard {
-                    Text("Auto-backup to Google", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                    Text("Automatic Google backup", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
                     Text(
-                        "Your app classifications, schedules and settings (never notification content) ride along with Android's system backup, so they come back automatically when you reinstall on the same Google account.",
+                        "Your app classifications, schedules and settings (never notification content) ride along with Android's own system backup and come back automatically when you reinstall on the same Google account. It runs by itself in the background — there's nothing to tap here. To confirm it's on, check your phone's Settings → System → Backup.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 NavRow(
                     title = "Back up to a file",
-                    subtitle = "Save a copy you can keep or move to another phone",
+                    subtitle = "Save a copy anywhere — including Google Drive — from the file picker",
                     onClick = { createBackupLauncher.launch(viewModel.backupFileName) },
                 )
                 NavRow(

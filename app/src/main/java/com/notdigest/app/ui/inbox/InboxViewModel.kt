@@ -6,7 +6,6 @@ import com.notdigest.app.domain.model.AppNotification
 import com.notdigest.app.domain.model.DigestMode
 import com.notdigest.app.domain.model.DigestType
 import com.notdigest.app.domain.repository.AppRuleRepository
-import com.notdigest.app.domain.repository.DigestRepository
 import com.notdigest.app.domain.repository.NotificationRepository
 import com.notdigest.app.domain.system.LaunchResult
 import com.notdigest.app.domain.usecase.DeliverDigestUseCase
@@ -63,7 +62,6 @@ data class InboxUiState(
 class InboxViewModel @Inject constructor(
     private val notificationRepository: NotificationRepository,
     private val appRuleRepository: AppRuleRepository,
-    private val digestRepository: DigestRepository,
     private val deliverDigestUseCase: DeliverDigestUseCase,
     private val openNotificationUseCase: OpenNotificationUseCase,
 ) : ViewModel() {
@@ -97,25 +95,21 @@ class InboxViewModel @Inject constructor(
 
     private val core = combine(
         delivered,
-        digestRepository.observeDigests(),
         query,
         appFilter,
         selectedDate,
-    ) { list, digests, q, filter, date ->
+    ) { list, q, filter, date ->
         val today = LocalDate.now(zone)
         val yesterday = today.minusDays(1)
-        val digestById = digests.associateBy { it.id }
 
         // Collapse exact duplicates an app re-fired within a delivery (same app + title + text).
         val deduped = list.distinctBy { listOf(it.digestId, it.packageName, it.title, it.text) }
         val byApp = if (filter == null) deduped else deduped.filter { it.packageName == filter }
 
-        // The "delivery day" is when its digest was created; fall back to the notification's own time.
-        fun deliveryDay(n: AppNotification): LocalDate =
-            localDateOf(n.digestId?.let { digestById[it]?.createdAt } ?: n.postedAt)
-
+        // Group by each notification's OWN day, so "Yesterday" means yesterday's notifications —
+        // not "whatever digest happened to run yesterday".
         var sections = byApp
-            .groupBy { deliveryDay(it) }
+            .groupBy { localDateOf(it.postedAt) }
             .map { (day, notifs) ->
                 DaySection(
                     date = day,
@@ -134,7 +128,7 @@ class InboxViewModel @Inject constructor(
             .map { (pkg, items) -> AppFilterOption(pkg, items.first().appName, items.size) }
             .sortedByDescending { it.count }
 
-        val dates = deduped.map { deliveryDay(it) }.distinct().sortedDescending()
+        val dates = deduped.map { localDateOf(it.postedAt) }.distinct().sortedDescending()
 
         Core(sections, apps, dates, q, filter, date, deduped.size)
     }

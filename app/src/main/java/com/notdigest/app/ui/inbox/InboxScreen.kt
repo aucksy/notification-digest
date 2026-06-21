@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.stickyHeader
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -188,7 +189,7 @@ fun InboxScreen(
                         }
                     }
                     state.groups.forEach { group ->
-                        item(key = "header-${group.key}") {
+                        stickyHeader(key = "header-${group.key}") {
                             GroupHeader(
                                 group = group,
                                 onToggle = { viewModel.setGroupExpanded(group.key, !group.expanded) },
@@ -281,7 +282,11 @@ private fun GroupHeader(group: DaySection, onToggle: () -> Unit) {
     val today = remember { LocalDate.now() }
     val rotation by animateFloatAsState(if (group.expanded) 180f else 0f, label = "chevron")
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(vertical = Spacing.sm, horizontal = Spacing.xs),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background)
+            .clickable(onClick = onToggle)
+            .padding(vertical = Spacing.sm, horizontal = Spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {

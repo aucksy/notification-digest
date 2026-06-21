@@ -15,6 +15,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.notdigest.app.core.Constants
 import com.notdigest.app.data.system.AppIconLoader
+import com.notdigest.app.data.system.CurrentActivityHolder
 import com.notdigest.app.ui.AppViewModel
 import com.notdigest.app.ui.LocalAppIconLoader
 import com.notdigest.app.ui.LocalHapticsEnabled
@@ -29,6 +30,7 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var appIconLoader: AppIconLoader
+    @Inject lateinit var currentActivityHolder: CurrentActivityHolder
 
     private val deepLinkRoute = mutableStateOf<String?>(null)
 
@@ -61,6 +63,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        currentActivityHolder.set(this)
+    }
+
+    override fun onPause() {
+        currentActivityHolder.clear(this)
+        super.onPause()
     }
 
     override fun onNewIntent(intent: Intent) {

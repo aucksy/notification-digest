@@ -16,6 +16,7 @@ import javax.inject.Singleton
 class DeepLinkLauncherImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val pendingIntents: PendingIntentStore,
+    private val activityHolder: CurrentActivityHolder,
 ) : DeepLinkLauncher {
 
     /**
@@ -24,8 +25,13 @@ class DeepLinkLauncherImpl @Inject constructor(
      *  2. launch the owning app, else
      *  3. open the app's info page (apps with no launchable screen, e.g. Phone/Telecom), else
      *  4. report failure so the UI can show a graceful message.
+     *
+     * Activities are started from the foreground Activity when available — under Android 14/15 launch
+     * rules, an app-context startActivity can be silently blocked even while the app is visible.
      */
     override fun open(notification: AppNotification): LaunchResult {
+        val launcher = activityHolder.current() ?: context
+
         pendingIntents.contentIntent(notification.sbnKey)?.let { intent ->
             if (sendQuietly(intent)) return LaunchResult.DEEP_LINKED
         }
@@ -33,7 +39,7 @@ class DeepLinkLauncherImpl @Inject constructor(
         val launch = context.packageManager.getLaunchIntentForPackage(notification.packageName)
         if (launch != null) {
             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            if (runCatching { context.startActivity(launch) }.isSuccess) return LaunchResult.OPENED_APP
+            if (runCatching { launcher.startActivity(launch) }.isSuccess) return LaunchResult.OPENED_APP
         }
 
         // Some notifications come from packages with no launchable activity — e.g. the Phone /
@@ -43,7 +49,7 @@ class DeepLinkLauncherImpl @Inject constructor(
             data = Uri.fromParts("package", notification.packageName, null)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        if (runCatching { context.startActivity(settings) }.isSuccess) return LaunchResult.OPENED_SETTINGS
+        if (runCatching { launcher.startActivity(settings) }.isSuccess) return LaunchResult.OPENED_SETTINGS
 
         return LaunchResult.FAILED
     }

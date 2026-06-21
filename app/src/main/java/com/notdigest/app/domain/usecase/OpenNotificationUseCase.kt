@@ -15,9 +15,12 @@ class OpenNotificationUseCase @Inject constructor(
     private val notificationRepository: NotificationRepository,
 ) {
     suspend operator fun invoke(notification: AppNotification, markRead: Boolean = true): LaunchResult {
+        // Launch FIRST — starting the activity as close to the user's tap as possible avoids the
+        // Android 14/15 background-launch block that a preceding suspending DB write can trigger.
+        val result = launcher.open(notification)
         if (markRead && !notification.isRead) {
             notificationRepository.markRead(listOf(notification.id))
         }
-        return launcher.open(notification)
+        return result
     }
 }

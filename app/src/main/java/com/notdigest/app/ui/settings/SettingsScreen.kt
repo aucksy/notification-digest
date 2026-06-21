@@ -1,8 +1,6 @@
 package com.notdigest.app.ui.settings
 
-import android.annotation.SuppressLint
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -77,15 +75,17 @@ fun SettingsScreen(
 
     var accessGranted by remember { mutableStateOf(NotificationAccessState.isGranted(context)) }
     var batteryExempt by remember { mutableStateOf(BatteryOptimizationState.isIgnoring(context)) }
+    var batteryRestricted by remember { mutableStateOf(BatteryOptimizationState.isBackgroundRestricted(context)) }
     // After the standard battery dialog is dismissed, take the user straight to their phone's own
     // (OEM) background-control screen — the second setting only they can change.
     var pendingOemGuide by remember { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         accessGranted = NotificationAccessState.isGranted(context)
         batteryExempt = BatteryOptimizationState.isIgnoring(context)
+        batteryRestricted = BatteryOptimizationState.isBackgroundRestricted(context)
         if (pendingOemGuide) {
             pendingOemGuide = false
-            openAppBatterySettings(context)
+            BatteryOptimizationState.openAppBatterySettings(context)
         }
     }
 
@@ -156,24 +156,32 @@ fun SettingsScreen(
                         color = if (batteryExempt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        "2.  Your phone's own battery control (OnePlus / Oppo / Realme, etc.) — set Notification Digest to \"Allow background activity\". Only you can change this one.",
+                        "2.  Your phone's own battery control (OnePlus / Oppo / Realme, etc.) — set Notification Digest to “Allow background activity” (not Smart mode). Only you can change this one.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
+                    if (batteryRestricted) {
+                        Spacer(Modifier.height(Spacing.sm))
+                        Text(
+                            "⚠ Your phone is set to “Restrict background activity” — this will keep killing the app. Switch it to “Allow background activity”.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
                 NavRow(
                     title = "Allow background running",
                     subtitle = if (batteryExempt) {
-                        "Step 1 done — opens battery settings for step 2"
+                        "Step 1 done — opens battery settings for step 2 (choose “Allow background activity”)"
                     } else {
                         "Allows step 1, then opens battery settings for step 2"
                     },
                     onClick = {
                         if (batteryExempt) {
-                            openAppBatterySettings(context)
+                            BatteryOptimizationState.openAppBatterySettings(context)
                         } else {
                             pendingOemGuide = true
-                            requestIgnoreBatteryOptimizations(context)
+                            BatteryOptimizationState.requestIgnore(context)
                         }
                     },
                 )
@@ -346,35 +354,6 @@ private fun openListenerSettings(context: android.content.Context) {
     context.startActivity(
         Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
     )
-}
-
-/**
- * Open this app's system details page — one tap away from the OEM "App battery management" / "Power
- * consumption controls" screen where the user picks "Allow background activity". There's no public
- * deep link to the manufacturer's own control, so this is the closest reliable landing spot.
- */
-private fun openAppBatterySettings(context: android.content.Context) {
-    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-        data = Uri.fromParts("package", context.packageName, null)
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-    runCatching { context.startActivity(intent) }
-}
-
-/** One-tap system dialog to exempt the app from battery optimization; falls back to the settings list. */
-@SuppressLint("BatteryLife")
-private fun requestIgnoreBatteryOptimizations(context: android.content.Context) {
-    val request = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-        data = Uri.fromParts("package", context.packageName, null)
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-    runCatching { context.startActivity(request) }.onFailure {
-        runCatching {
-            context.startActivity(
-                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-        }
-    }
 }
 
 /** Open the per-app notification settings list so the user can set a noisy app to Silent. */

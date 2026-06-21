@@ -59,11 +59,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.notdigest.app.service.BatteryOptimizationState
 import com.notdigest.app.service.NotificationAccessState
 import com.notdigest.app.ui.theme.Spacing
 import kotlinx.coroutines.launch
 
-private const val PAGE_COUNT = 6
+private const val PAGE_COUNT = 7
 
 @Composable
 fun OnboardingScreen(
@@ -76,8 +77,15 @@ fun OnboardingScreen(
     val selectedPreset by viewModel.selectedPreset.collectAsStateWithLifecycle()
 
     var accessGranted by remember { mutableStateOf(NotificationAccessState.isGranted(context)) }
+    var batteryExempt by remember { mutableStateOf(BatteryOptimizationState.isIgnoring(context)) }
+    var pendingOemGuide by remember { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         accessGranted = NotificationAccessState.isGranted(context)
+        batteryExempt = BatteryOptimizationState.isIgnoring(context)
+        if (pendingOemGuide) {
+            pendingOemGuide = false
+            BatteryOptimizationState.openAppBatterySettings(context)
+        }
     }
 
     val postNotifLauncher = rememberLauncherForActivityResult(
@@ -122,11 +130,22 @@ fun OnboardingScreen(
                         )
                     },
                 )
-                4 -> SchedulePresetPage(
+                4 -> BackgroundReliabilityPage(
+                    batteryExempt = batteryExempt,
+                    onAllow = {
+                        if (batteryExempt) {
+                            BatteryOptimizationState.openAppBatterySettings(context)
+                        } else {
+                            pendingOemGuide = true
+                            BatteryOptimizationState.requestIgnore(context)
+                        }
+                    },
+                )
+                5 -> SchedulePresetPage(
                     selected = selectedPreset,
                     onSelect = viewModel::selectPreset,
                 )
-                5 -> ModesExplainedPage()
+                6 -> ModesExplainedPage()
             }
         }
 
@@ -234,6 +253,35 @@ private fun GrantAccessPage(granted: Boolean, onGrant: () -> Unit) {
                 }
             } else {
                 Button(onClick = onGrant) { Text("Open settings & grant access") }
+            }
+        },
+    )
+}
+
+@Composable
+private fun BackgroundReliabilityPage(batteryExempt: Boolean, onAllow: () -> Unit) {
+    OnboardingPage(
+        icon = Icons.Filled.Bolt,
+        title = "Keep it running reliably",
+        body = "Phones — especially OnePlus, Oppo and Realme — stop apps in the background to save power. That would let notifications slip through and break tapped notifications. Allow Notification Digest to keep running so nothing is missed.",
+        extra = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (batteryExempt) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.size(Spacing.sm))
+                        Text("Battery optimization allowed", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    }
+                    Spacer(Modifier.height(Spacing.md))
+                }
+                Button(onClick = onAllow) { Text("Allow background running") }
+                Spacer(Modifier.height(Spacing.md))
+                Text(
+                    "On the battery screen that opens, choose “Allow background activity” (not Smart mode). This is the key setting for reliable delivery.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
             }
         },
     )

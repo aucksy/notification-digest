@@ -66,6 +66,13 @@ fun NotDigestNavHost(
 
     LaunchedEffect(deepLinkRoute) {
         val route = deepLinkRoute ?: return@LaunchedEffect
+        // While onboarding is still on screen, ignore deep links — including the relaunch→Home jump.
+        // Otherwise re-opening the app mid-onboarding would shove Home on top of the unfinished
+        // onboarding flow, leaving both alive at once.
+        if (navController.currentDestination?.route == NavRoutes.ONBOARDING) {
+            onDeepLinkConsumed()
+            return@LaunchedEffect
+        }
         if (route in NavRoutes.BOTTOM_BAR) {
             navController.navigateTab(route)
         } else {

@@ -64,21 +64,6 @@
             -->
         </service>
 
-        <!--
-          Optional Notification Assistant. When the user makes this app the system assistant, it can
-          silence Digest-mode apps *before* they play a sound (onNotificationEnqueued) — something a
-          plain listener can't do. Off unless the user opts in; only one app can hold this role.
-        -->
-        <service
-            android:name=".service.DigestNotificationAssistantService"
-            android:exported="true"
-            android:label="@string/assistant_access_label"
-            android:permission="android.permission.BIND_NOTIFICATION_ASSISTANT_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.notification.NotificationAssistantService" />
-            </intent-filter>
-        </service>
-
         <!-- Handles digest-notification action buttons (Deliver Now / Review / dismiss). -->
         <receiver
             android:name=".notification.NotificationActionReceiver"

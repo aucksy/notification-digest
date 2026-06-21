@@ -2,7 +2,6 @@
 <resources>
     <string name="app_name">Notification Digest</string>
     <string name="notification_access_label">Notification Digest — collect &amp; batch</string>
-    <string name="assistant_access_label">Notification Digest — silence Digest apps</string>
 
     <!-- Notification channels -->
     <string name="channel_digest_name">Digest deliveries</string>

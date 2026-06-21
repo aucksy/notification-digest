@@ -47,7 +47,6 @@ import com.notdigest.app.BuildConfig
 import com.notdigest.app.core.Constants
 import com.notdigest.app.domain.model.ThemeMode
 import com.notdigest.app.service.NotificationAccessState
-import com.notdigest.app.service.NotificationAssistantState
 import com.notdigest.app.ui.components.NotDigestCard
 import com.notdigest.app.ui.theme.Spacing
 
@@ -63,10 +62,8 @@ fun SettingsScreen(
     var showClearConfirm by remember { mutableStateOf(false) }
 
     var accessGranted by remember { mutableStateOf(NotificationAccessState.isGranted(context)) }
-    var assistantGranted by remember { mutableStateOf(NotificationAssistantState.isGranted(context)) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         accessGranted = NotificationAccessState.isGranted(context)
-        assistantGranted = NotificationAssistantState.isGranted(context)
     }
 
     val createBackupLauncher = rememberLauncherForActivityResult(
@@ -156,27 +153,23 @@ fun SettingsScreen(
                 )
             }
 
-            // --- Silence sounds (Notification Assistant) ---
-            SettingsGroup(title = "Silence sounds") {
+            // --- About sounds ---
+            SettingsGroup(title = "Sounds") {
                 NotDigestCard {
                     Text(
-                        if (assistantGranted) "On — Digest apps arrive silently" else "Stop the brief sound before suppression",
+                        "Why a Digest app can still make one sound",
                         style = MaterialTheme.typography.titleSmall,
-                        color = if (assistantGranted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        "A Digest app can make a quick sound before it's tucked away. Make Notification Digest your phone's Notification Assistant and Digest apps arrive completely silently — Real-Time and critical apps still alert normally.\n\nOnly one app can be the assistant, so this replaces your phone's current one (e.g. Google's smart replies / adaptive notifications). You can turn it off anytime. Works on Android 10+.",
+                        "Android only lets this app tuck a notification away *after* it arrives, so a brand-new Digest notification can make one brief sound before it disappears (repeated sounds from the same app are already prevented).\n\nFor complete silence from a specific noisy app, open its notification settings and switch it to Silent — it'll still be collected and batched here.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 NavRow(
-                    title = if (assistantGranted) "Manage in system settings" else "Set as Notification Assistant",
-                    subtitle = if (assistantGranted) {
-                        "Notification Digest is your assistant"
-                    } else {
-                        "Opens Settings → Notifications → Notification assistant"
-                    },
+                    title = "Open notification settings",
+                    subtitle = "Set a noisy app to Silent at the source",
                     onClick = { openNotificationSettings(context) },
                 )
             }

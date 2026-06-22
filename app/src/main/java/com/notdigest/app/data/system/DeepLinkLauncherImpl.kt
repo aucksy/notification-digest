@@ -1,9 +1,11 @@
 package com.notdigest.app.data.system
 
+import android.app.ActivityOptions
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import com.notdigest.app.domain.model.AppNotification
 import com.notdigest.app.domain.system.DeepLinkLauncher
@@ -33,7 +35,7 @@ class DeepLinkLauncherImpl @Inject constructor(
         val launcher = activityHolder.current() ?: context
 
         pendingIntents.contentIntent(notification.sbnKey)?.let { intent ->
-            if (sendQuietly(intent)) return LaunchResult.DEEP_LINKED
+            if (sendQuietly(intent, launcher)) return LaunchResult.DEEP_LINKED
         }
 
         val launch = context.packageManager.getLaunchIntentForPackage(notification.packageName)
@@ -56,9 +58,24 @@ class DeepLinkLauncherImpl @Inject constructor(
 
     override fun fireAction(notification: AppNotification, actionIndex: Int): Boolean {
         val intent = pendingIntents.actionIntent(notification.sbnKey, actionIndex) ?: return false
-        return sendQuietly(intent)
+        return sendQuietly(intent, activityHolder.current() ?: context)
     }
 
-    private fun sendQuietly(intent: PendingIntent): Boolean =
-        runCatching { intent.send() }.isSuccess
+    /**
+     * Re-fire a captured PendingIntent. On Android 14+ the sender must explicitly grant its
+     * background-activity-launch privilege to the target, or the activity is silently dropped while
+     * `send()` still reports success — which made recent (in-cache) deep links "do nothing" while
+     * older ones fell through to a plain app launch. Passing the foreground Activity as the send
+     * context and opting in via ActivityOptions makes the deep link actually land.
+     */
+    private fun sendQuietly(intent: PendingIntent, launchContext: Context): Boolean = runCatching {
+        val options = if (Build.VERSION.SDK_INT >= 34) {
+            ActivityOptions.makeBasic()
+                .setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+                .toBundle()
+        } else {
+            null
+        }
+        intent.send(launchContext, 0, null, null, null, null, options)
+    }.isSuccess
 }

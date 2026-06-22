@@ -81,9 +81,11 @@ class InboxViewModel @Inject constructor(
     private val messageChannel = Channel<InboxMessage>(Channel.BUFFERED)
     val messages = messageChannel.receiveAsFlow()
 
-    private val delivered = query.flatMapLatest { q ->
-        if (q.isBlank()) notificationRepository.observeDelivered()
-        else notificationRepository.searchDelivered(q)
+    // The Inbox shows EVERY captured notification (waiting + delivered), grouped by day — so nothing is
+    // invisible just because a digest hasn't run yet. Delivery still drives the digest summary + stats.
+    private val allNotifications = query.flatMapLatest { q ->
+        if (q.isBlank()) notificationRepository.observeAll()
+        else notificationRepository.searchAll(q)
     }
 
     private data class Core(
@@ -97,7 +99,7 @@ class InboxViewModel @Inject constructor(
     )
 
     private val core = combine(
-        delivered,
+        allNotifications,
         query,
         appFilter,
         selectedDate,
@@ -255,9 +257,11 @@ class InboxViewModel @Inject constructor(
     }
 
     private fun messageFor(result: LaunchResult, appName: String): String = when (result) {
+        // Keep these neutral: tapping opens the app, which is the success the user expects. The old
+        // "couldn't open the exact screen" wording read like a failure on every older notification.
         LaunchResult.DEEP_LINKED -> "Opening in $appName…"
-        LaunchResult.OPENED_APP -> "Opened $appName — couldn't open the exact screen"
-        LaunchResult.OPENED_SETTINGS -> "$appName has no screen to open — showing its app info"
-        LaunchResult.FAILED -> "Couldn't open this notification"
+        LaunchResult.OPENED_APP -> "Opening $appName…"
+        LaunchResult.OPENED_SETTINGS -> "Opening $appName…"
+        LaunchResult.FAILED -> "Couldn't open $appName"
     }
 }

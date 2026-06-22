@@ -29,6 +29,12 @@ class NotificationRepositoryImpl @Inject constructor(
     override fun searchPending(query: String): Flow<List<AppNotification>> =
         dao.searchPending(query.trim()).map { it.map(NotificationEntity::toDomain) }
 
+    override fun observeAll(): Flow<List<AppNotification>> =
+        dao.observeAll().map { it.map(NotificationEntity::toDomain) }
+
+    override fun searchAll(query: String): Flow<List<AppNotification>> =
+        dao.searchAll(query.trim()).map { it.map(NotificationEntity::toDomain) }
+
     override fun observeDelivered(): Flow<List<AppNotification>> =
         dao.observeDelivered().map { it.map(NotificationEntity::toDomain) }
 

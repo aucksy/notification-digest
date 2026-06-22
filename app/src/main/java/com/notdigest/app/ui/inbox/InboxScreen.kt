@@ -124,13 +124,6 @@ fun InboxScreen(
                 )
             } else {
                 InboxHeader(deliveredCount = state.totalDelivered, onMarkAllRead = viewModel::markAllRead)
-                if (state.archivedCount > 0) {
-                    ArchivedBanner(
-                        archivedCount = state.archivedCount,
-                        isDelivering = state.isDelivering,
-                        onSeeNow = { buzz(); viewModel.seeNow() },
-                    )
-                }
                 SearchField(query = state.query, onQueryChange = viewModel::onQueryChange)
             }
 
@@ -145,15 +138,11 @@ fun InboxScreen(
                 }
                 EmptyState(
                     icon = Icons.Filled.Inbox,
-                    title = when {
-                        state.query.isNotBlank() -> "No matches"
-                        state.archivedCount > 0 -> "Nothing here yet"
-                        else -> "Inbox zero"
-                    },
-                    subtitle = when {
-                        state.query.isNotBlank() -> "Try a different search."
-                        state.archivedCount > 0 -> "Tap See All Notifications Now to bring your archived ones here."
-                        else -> "Delivered notifications live here, grouped by day. Archived ones stay hidden until you choose to see them."
+                    title = if (state.query.isNotBlank()) "No matches" else "All clear",
+                    subtitle = if (state.query.isNotBlank()) {
+                        "Try a different search."
+                    } else {
+                        "Notifications from your Digest apps appear here, grouped by day, as they're collected."
                     },
                     modifier = Modifier.padding(top = Spacing.xl),
                 )

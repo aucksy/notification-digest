@@ -1,6 +1,7 @@
 package com.notdigest.app.service
 
 import android.app.Notification
+import android.content.pm.ApplicationInfo
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -164,6 +165,11 @@ class DigestNotificationListenerService : NotificationListenerService() {
         val flags = sbn.notification.flags
         if (flags and Notification.FLAG_ONGOING_EVENT != 0) return true
         if (flags and Notification.FLAG_FOREGROUND_SERVICE != 0) return true
+        // System services the user can't even see in the Apps list (Permission controller, system UI,
+        // package installer, …) have no launcher activity — never batch them; leave them showing as-is.
+        if (modeCache.launchableKnown() && !modeCache.isLaunchable(sbn.packageName) && isSystemApp(sbn.packageName)) {
+            return true
+        }
         // NOTE: group summaries are intentionally NOT ignored here — they're handled per-mode in
         // onNotificationPosted (cancelled for Digest apps, left for Real-Time) so they don't linger.
         return when (sbn.notification.category) {
@@ -217,6 +223,13 @@ class DigestNotificationListenerService : NotificationListenerService() {
         val pm = packageManager
         pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
     }.getOrDefault(pkg)
+
+    /** True for platform/system packages (pre-installed or updated-system). Only checked for the rare
+     *  non-launchable package, so the per-notification PackageManager hit is negligible. */
+    private fun isSystemApp(pkg: String): Boolean = runCatching {
+        val info = packageManager.getApplicationInfo(pkg, 0)
+        info.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+    }.getOrDefault(false)
 
     private companion object {
         const val TAG = "DigestListener"

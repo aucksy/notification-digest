@@ -13,8 +13,14 @@ internal val Violet80 = Color(0xFFCBBEFF)
 internal val Violet90 = Color(0xFFE8E0FF)
 internal val Violet95 = Color(0xFFF4EFFF)
 
-internal val Teal40 = Color(0xFF1F8A82)
-internal val Teal80 = Color(0xFF8AD9D1)
+// Secondary: a muted purple-grey that harmonises with the violet primary. (Replaces the old teal,
+// which read as a jarring green — unrelated to the brand — whenever Dynamic Colour was off.)
+internal val SecondaryLight = Color(0xFF625B71)
+internal val SecondaryContainerLight = Color(0xFFE8DEF8)
+internal val OnSecondaryContainerLight = Color(0xFF1D192B)
+internal val SecondaryDark = Color(0xFFCCC2DC)
+internal val OnSecondaryDark = Color(0xFF332D41)
+internal val SecondaryContainerDark = Color(0xFF4A4458)
 
 internal val NeutralWhite = Color(0xFFFFFFFF)
 internal val NeutralBg = Color(0xFFFAF8FF)
@@ -40,10 +46,10 @@ val LightColors = lightColorScheme(
     onPrimary = NeutralWhite,
     primaryContainer = Violet90,
     onPrimaryContainer = Violet10,
-    secondary = Teal40,
+    secondary = SecondaryLight,
     onSecondary = NeutralWhite,
-    secondaryContainer = Teal80,
-    onSecondaryContainer = Color(0xFF00201D),
+    secondaryContainer = SecondaryContainerLight,
+    onSecondaryContainer = OnSecondaryContainerLight,
     tertiary = Color(0xFF7D5260),
     background = NeutralBg,
     onBackground = Ink,
@@ -65,10 +71,10 @@ val DarkColors = darkColorScheme(
     onPrimary = Violet10,
     primaryContainer = Color(0xFF52429F),
     onPrimaryContainer = Violet95,
-    secondary = Teal80,
-    onSecondary = Color(0xFF00201D),
-    secondaryContainer = Color(0xFF0D4A44),
-    onSecondaryContainer = Teal80,
+    secondary = SecondaryDark,
+    onSecondary = OnSecondaryDark,
+    secondaryContainer = SecondaryContainerDark,
+    onSecondaryContainer = Color(0xFFE8DEF8),
     tertiary = Color(0xFFEFB8C8),
     background = DarkBg,
     onBackground = DarkInk,

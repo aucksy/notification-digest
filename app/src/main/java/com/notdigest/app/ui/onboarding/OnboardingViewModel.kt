@@ -61,6 +61,9 @@ class OnboardingViewModel @Inject constructor(
                 _driveRestore.value = DriveRestoreUi()
                 return@launch
             }
+            // Signing in during onboarding implies the user wants their setup backed up — turn auto-backup
+            // on by default (they can still toggle it off in Settings).
+            preferencesRepository.setDriveAutoBackup(true)
             val found = runCatching { driveBackupManager.backupExists() }.getOrDefault(false)
             _driveRestore.value = DriveRestoreUi(email = email, backupFound = found, busy = false, checked = true)
         }

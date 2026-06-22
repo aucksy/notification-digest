@@ -145,20 +145,20 @@ fun SettingsScreen(
             SettingsGroup(title = "Keep running reliably") {
                 NotDigestCard {
                     Text(
-                        "Your phone can stop Notification Digest in the background to save power — then notifications slip through and tapped ones open the app's home. To keep it reliable, allow it to always run in the background:",
+                        "To save power, your phone can stop this app in the background — then it misses notifications. Let it always run in the background:",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(Spacing.sm))
                     Text(
-                        "1.  Tap “Allow background running” below.\n2.  On the app's page, open Battery Settings.\n3.  Choose “Allow background activity” — not Smart mode or Optimised.",
+                        "1.  Tap “Allow background running” below.\n2.  Open Battery and choose “Unrestricted” — some phones say “Allow background activity”.\n3.  Avoid “Optimised” or “Smart”; they can still stop the app.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     if (batteryRestricted) {
                         Spacer(Modifier.height(Spacing.sm))
                         Text(
-                            "⚠ Your phone is set to “Restrict background activity” — this keeps killing the app. Switch it to “Allow background activity”.",
+                            "⚠ This app is “Restricted” in the background — that keeps stopping it. Switch it to “Unrestricted”.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error,
                         )
@@ -166,7 +166,7 @@ fun SettingsScreen(
                 }
                 NavRow(
                     title = "Allow background running",
-                    subtitle = "Then choose “Allow background activity” in Battery Settings",
+                    subtitle = "Set battery to “Unrestricted”",
                     onClick = {
                         if (batteryExempt) {
                             BatteryOptimizationState.openAppBatterySettings(context)

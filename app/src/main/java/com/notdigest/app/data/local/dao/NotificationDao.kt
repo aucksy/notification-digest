@@ -49,7 +49,25 @@ interface NotificationDao {
     )
     fun searchPending(q: String): Flow<List<NotificationEntity>>
 
-    // --- Delivered (the read-anytime archive shown in the Inbox after delivery) ---
+    // --- Inbox archive: every captured notification (waiting + delivered), grouped by day in the UI.
+    // The Inbox is the user's complete day-by-day history; delivery only controls the digest summary
+    // and stats, not whether a notification is browsable here.
+
+    @Query("SELECT * FROM notifications ORDER BY postedAt DESC")
+    fun observeAll(): Flow<List<NotificationEntity>>
+
+    @Query(
+        """
+        SELECT * FROM notifications
+        WHERE (title LIKE '%' || :q || '%'
+            OR text LIKE '%' || :q || '%'
+            OR appName LIKE '%' || :q || '%')
+        ORDER BY postedAt DESC
+        """,
+    )
+    fun searchAll(q: String): Flow<List<NotificationEntity>>
+
+    // --- Delivered (kept for stats / digest history) ---
 
     @Query("SELECT * FROM notifications WHERE isDelivered = 1 ORDER BY deliveredAt DESC, postedAt DESC")
     fun observeDelivered(): Flow<List<NotificationEntity>>

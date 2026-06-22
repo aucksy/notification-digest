@@ -204,7 +204,7 @@ private fun StatsRow(stats: NotificationStats, onOpenRealtimeApps: () -> Unit) {
         StatTile(value = stats.batchedToday, label = "Archived today", modifier = Modifier.weight(1f))
         StatTile(
             value = stats.lifetimeAvoided.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
-            label = "Avoided · all time",
+            label = "Archived · all time",
             modifier = Modifier.weight(1f),
         )
         StatTile(value = stats.realtimeAppCount, label = "Real-Time apps", modifier = Modifier.weight(1f), onClick = onOpenRealtimeApps)

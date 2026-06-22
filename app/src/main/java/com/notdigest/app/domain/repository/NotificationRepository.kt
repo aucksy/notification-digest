@@ -15,7 +15,12 @@ interface NotificationRepository {
     /** Full-text-ish search across pending notifications (title, body, app name). */
     fun searchPending(query: String): Flow<List<AppNotification>>
 
-    /** Delivered notifications — the read-anytime archive shown in the Inbox after delivery. */
+    /** Every captured notification (waiting + delivered) — the Inbox's complete day-by-day archive. */
+    fun observeAll(): Flow<List<AppNotification>>
+
+    fun searchAll(query: String): Flow<List<AppNotification>>
+
+    /** Delivered notifications only — kept for stats / digest history. */
     fun observeDelivered(): Flow<List<AppNotification>>
 
     fun searchDelivered(query: String): Flow<List<AppNotification>>

@@ -281,14 +281,14 @@ private fun GrantAccessPage(granted: Boolean, onGrant: () -> Unit) {
 private fun BackgroundReliabilityPage(onAllow: () -> Unit) {
     OnboardingPage(
         icon = Icons.Filled.Bolt,
-        title = "Keep it running reliably",
-        body = "Phones — especially OnePlus, Oppo and Realme — stop apps in the background to save power, which would let notifications slip through. Allow Notification Digest to keep running so nothing is missed.",
+        title = "Keep notifications flowing",
+        body = "To save power, your phone can stop this app in the background — then it can't collect your notifications. Allow it to keep running so nothing is missed.",
         extra = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Button(onClick = onAllow) { Text("Allow background running") }
                 Spacer(Modifier.height(Spacing.md))
                 Text(
-                    "Then open Battery Settings and choose “Allow background activity” — not Smart mode. This is the key setting for reliable delivery.",
+                    "Then set this app's battery use to “Unrestricted” (some phones say “Allow background activity”). Avoid “Optimised” or “Smart” — those can still stop it.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

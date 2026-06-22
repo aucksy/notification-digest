@@ -38,14 +38,24 @@ object CriticalDefaults {
         // Google core
         "com.google.android.googlequicksearchbox",
         "com.google.android.apps.adm",
-        // Clock / alarms
+        // Clock / alarms (covers the common OEM variants; the "clock"/"alarm" hints catch the rest)
         "com.google.android.deskclock",
         "com.android.deskclock",
         "com.sec.android.app.clockpackage",
+        "com.oneplus.deskclock",
+        "com.coloros.alarmclock",
+        "com.oppo.alarmclock",
+        "com.vivo.alarmclock",
+        "com.android.BBKClock",
+        "com.huawei.deskclock",
+        "com.transsion.deskclock",
+        "com.miui.clock",
     )
 
     private val keywordHints = listOf(
         "messaging", "messages", "authenticator", "dialer", "otp", "2fa", "mfa",
+        // Alarms/timers are time-critical — a batched alarm is useless.
+        "clock", "alarm",
     )
 
     /** True when an app should remain Real-Time by default. */

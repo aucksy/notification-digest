@@ -48,6 +48,18 @@ import com.notdigest.app.ui.components.SectionHeader
 import com.notdigest.app.ui.theme.Spacing
 import java.time.Instant
 import java.time.ZoneId
+import android.content.Intent
+import android.provider.Settings
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import com.notdigest.app.service.NotificationAccessState
 
 @Composable
 fun HomeScreen(
@@ -59,6 +71,15 @@ fun HomeScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val is24Hour = LocalIs24Hour.current
+    val context = LocalContext.current
+
+    // Notification access can be off even when onboarding is "done" — e.g. after a reinstall (Android
+    // revokes the permission, but the restored config keeps onboarding complete). Surface it here so
+    // the user is never stuck on a silently-not-collecting app.
+    var accessGranted by remember { mutableStateOf(NotificationAccessState.isGranted(context)) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        accessGranted = NotificationAccessState.isGranted(context)
+    }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { snackbarHostState.showSnackbar(it) }
@@ -76,6 +97,12 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(Spacing.lg),
         ) {
             item { Greeting() }
+
+            if (!accessGranted) {
+                item(key = "access-off") {
+                    AccessOffBanner(onGrant = { openListenerSettings(context) })
+                }
+            }
 
             item {
                 HeroCard(
@@ -195,6 +222,49 @@ private fun HeroCard(
                 Text("See All Notifications Now", fontWeight = FontWeight.SemiBold)
             }
         }
+    }
+}
+
+/** Open the system "Notification access" screen so the user can re-grant the listener permission. */
+private fun openListenerSettings(context: android.content.Context) {
+    runCatching {
+        context.startActivity(
+            Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }.onFailure {
+        runCatching {
+            context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+    }
+}
+
+@Composable
+private fun AccessOffBanner(onGrant: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.errorContainer)
+            .clickable(onClick = onGrant)
+            .padding(Spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+    ) {
+        Icon(Icons.Filled.NotificationsOff, null, tint = MaterialTheme.colorScheme.onErrorContainer)
+        Column(Modifier.weight(1f)) {
+            Text(
+                "Notification access is off",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                "Notifications aren't being collected. Tap to turn it back on.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+        }
+        Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onErrorContainer)
     }
 }
 

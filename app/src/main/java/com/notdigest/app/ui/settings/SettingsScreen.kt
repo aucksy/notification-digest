@@ -246,12 +246,12 @@ fun SettingsScreen(
             SettingsGroup(title = "Sounds") {
                 NotDigestCard {
                     Text(
-                        "Why an app set to Digest may still beep once",
+                        "Why an app set to Digest can still make a sound",
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        "Android plays a notification's sound the moment it arrives — before any app can step in — then we hide it. So the first one may beep; repeats from the same app are silenced.\n\nWant a noisy app completely silent? Set it to Silent in its own settings. It'll still be collected here.",
+                        "Android plays a notification's sound the instant it arrives — before any app, including this one, can hide it. So a Digest notification makes its brief sound, then we tuck it away; we can't prevent that sound.\n\nTo silence a noisy app completely, set it to Silent in its own settings — it'll still be collected and batched here.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

@@ -21,6 +21,13 @@ class CriticalDefaultsTest {
     }
 
     @Test
+    fun `clock and alarm apps stay real-time by default`() {
+        assertThat(CriticalDefaults.isCritical("com.google.android.deskclock", "Clock")).isTrue()
+        assertThat(CriticalDefaults.isCritical("com.coloros.alarmclock", "Clock")).isTrue()
+        assertThat(CriticalDefaults.isCritical("com.example.foo", "Alarm")).isTrue()
+    }
+
+    @Test
     fun `social apps are NOT assumed critical`() {
         assertThat(CriticalDefaults.isCritical("com.instagram.android", "Instagram")).isFalse()
     }

@@ -54,7 +54,8 @@ class InitializeAppDataUseCase @Inject constructor(
     }
 
     companion object {
-        /** Bump when the critical-defaults set changes and should be re-applied once. */
-        const val CRITICAL_DEFAULTS_VERSION = 1
+        /** Bump when the critical-defaults set changes and should be re-applied once.
+         *  v2: clock/alarm apps added to the critical (Real-Time) set. */
+        const val CRITICAL_DEFAULTS_VERSION = 2
     }
 }

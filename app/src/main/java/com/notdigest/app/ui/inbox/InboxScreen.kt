@@ -124,6 +124,13 @@ fun InboxScreen(
                 )
             } else {
                 InboxHeader(deliveredCount = state.totalDelivered, onMarkAllRead = viewModel::markAllRead)
+                if (state.archivedCount > 0) {
+                    ArchivedBanner(
+                        archivedCount = state.archivedCount,
+                        isDelivering = state.isDelivering,
+                        onSeeNow = { buzz(); viewModel.seeNow() },
+                    )
+                }
                 SearchField(query = state.query, onQueryChange = viewModel::onQueryChange)
             }
 
@@ -138,11 +145,15 @@ fun InboxScreen(
                 }
                 EmptyState(
                     icon = Icons.Filled.Inbox,
-                    title = if (state.query.isNotBlank()) "No matches" else "All clear",
-                    subtitle = if (state.query.isNotBlank()) {
-                        "Try a different search."
-                    } else {
-                        "Notifications from your Digest apps appear here, grouped by day, as they're collected."
+                    title = when {
+                        state.query.isNotBlank() -> "No matches"
+                        state.archivedCount > 0 -> "Nothing delivered yet"
+                        else -> "Inbox zero"
+                    },
+                    subtitle = when {
+                        state.query.isNotBlank() -> "Try a different search."
+                        state.archivedCount > 0 -> "Waiting notifications stay hidden until their digest time. Tap the banner above to see them now."
+                        else -> "Delivered notifications live here, grouped by day. Waiting ones stay hidden until their digest time."
                     },
                     modifier = Modifier.padding(top = Spacing.xl),
                 )
@@ -167,25 +178,23 @@ fun InboxScreen(
                             )
                         }
                     }
-                    state.groups.forEach { group ->
-                        stickyHeader(key = "header-${group.key}") {
-                            GroupHeader(
-                                group = group,
-                                onToggle = { viewModel.setGroupExpanded(group.key, !group.expanded) },
-                            )
+
+                    state.today?.let { sec ->
+                        stickyHeader(key = "today") { DayHeader(sec.label, sec.count) }
+                        notificationRows(sec.notifications, state, viewModel, buzz)
+                    }
+                    state.yesterday?.let { sec ->
+                        stickyHeader(key = "yesterday") { DayHeader(sec.label, sec.count) }
+                        notificationRows(sec.notifications, state, viewModel, buzz)
+                    }
+                    state.older?.let { older ->
+                        stickyHeader(key = "older") {
+                            OlderHeader(older.count, older.expanded, onToggle = viewModel::toggleOlder)
                         }
-                        if (group.expanded) {
-                            items(group.notifications, key = { it.id }) { notification ->
-                                SwipeableNotificationRow(
-                                    notification = notification,
-                                    selectionMode = state.selectionMode,
-                                    selected = notification.id in state.selectedIds,
-                                    onOpen = { viewModel.open(notification) },
-                                    onDelete = { buzz(); viewModel.delete(listOf(notification.id)) },
-                                    onMakeRealtime = { buzz(); viewModel.makeAppRealtime(notification.packageName, notification.appName) },
-                                    onToggleSelect = { viewModel.toggleSelection(notification.id) },
-                                    onLongPress = { buzz(); viewModel.startSelection(notification.id) },
-                                )
+                        if (older.expanded) {
+                            older.dates.forEach { date ->
+                                item(key = "older-${date.key}") { DateSubHeader(date.label, date.count) }
+                                notificationRows(date.notifications, state, viewModel, buzz)
                             }
                         }
                     }
@@ -268,9 +277,53 @@ private fun ArchivedBanner(archivedCount: Int, isDelivering: Boolean, onSeeNow: 
     }
 }
 
+/** Renders one day's notification rows. Shared by Today, Yesterday and each Older date. */
+private fun androidx.compose.foundation.lazy.LazyListScope.notificationRows(
+    notifications: List<AppNotification>,
+    state: InboxUiState,
+    viewModel: InboxViewModel,
+    buzz: () -> Unit,
+) {
+    items(notifications, key = { it.id }) { notification ->
+        SwipeableNotificationRow(
+            notification = notification,
+            selectionMode = state.selectionMode,
+            selected = notification.id in state.selectedIds,
+            onOpen = { viewModel.open(notification) },
+            onDelete = { buzz(); viewModel.delete(listOf(notification.id)) },
+            onMakeRealtime = { buzz(); viewModel.makeAppRealtime(notification.packageName, notification.appName) },
+            onToggleSelect = { viewModel.toggleSelection(notification.id) },
+            onLongPress = { buzz(); viewModel.startSelection(notification.id) },
+        )
+    }
+}
+
+/** Today / Yesterday header — always shown (these sections don't collapse). */
 @Composable
-private fun GroupHeader(group: DaySection, onToggle: () -> Unit) {
-    val rotation by animateFloatAsState(if (group.expanded) 180f else 0f, label = "chevron")
+private fun DayHeader(label: String, count: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(vertical = Spacing.sm, horizontal = Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(Modifier.weight(1f))
+        CountPill(text = count.toString())
+    }
+}
+
+/** Collapsible "Older" header; expanding reveals per-date subgroups. */
+@Composable
+private fun OlderHeader(count: Int, expanded: Boolean, onToggle: () -> Unit) {
+    val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -281,18 +334,43 @@ private fun GroupHeader(group: DaySection, onToggle: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         Text(
-            group.label,
+            "Older",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground,
             fontWeight = FontWeight.SemiBold,
         )
         Spacer(Modifier.weight(1f))
-        CountPill(text = group.count.toString())
+        CountPill(text = count.toString())
         Icon(
             Icons.Filled.ExpandMore,
-            contentDescription = if (group.expanded) "Collapse" else "Expand",
+            contentDescription = if (expanded) "Collapse" else "Expand",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(22.dp).rotate(rotation),
+        )
+    }
+}
+
+/** A date subgroup heading inside the expanded Older section. */
+@Composable
+private fun DateSubHeader(label: String, count: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = Spacing.md, end = Spacing.xs, top = Spacing.xs, bottom = Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium,
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            count.toString(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

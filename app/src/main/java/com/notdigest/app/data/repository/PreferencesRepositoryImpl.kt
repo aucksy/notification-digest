@@ -36,6 +36,7 @@ class PreferencesRepositoryImpl @Inject constructor(
         val DRIVE_AUTO = booleanPreferencesKey("drive_auto_backup")
         val DRIVE_LAST_BACKUP = longPreferencesKey("drive_last_backup_at")
         val LIFETIME_AVOIDED = longPreferencesKey("lifetime_avoided")
+        val BG_SETUP_DONE = booleanPreferencesKey("background_setup_done")
     }
 
     override val preferences: Flow<UserPreferences> = dataStore.data.map { p ->
@@ -109,6 +110,13 @@ class PreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setDriveLastBackupAt(millis: Long) {
         dataStore.edit { it[Keys.DRIVE_LAST_BACKUP] = millis }
+    }
+
+    override val backgroundSetupDone: Flow<Boolean> =
+        dataStore.data.map { it[Keys.BG_SETUP_DONE] ?: false }.distinctUntilChanged()
+
+    override suspend fun setBackgroundSetupDone(done: Boolean) {
+        dataStore.edit { it[Keys.BG_SETUP_DONE] = done }
     }
 
     override val lifetimeAvoided: Flow<Long> =

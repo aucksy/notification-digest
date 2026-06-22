@@ -13,7 +13,9 @@ import com.notdigest.app.domain.system.DigestScheduler
 import com.notdigest.app.domain.usecase.SyncInstalledAppRulesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -45,6 +47,14 @@ class OnboardingViewModel @Inject constructor(
 
     private val _driveRestore = MutableStateFlow(DriveRestoreUi())
     val driveRestore = _driveRestore.asStateFlow()
+
+    /** Marked true once the user returns from the OEM battery screen during the background step. */
+    val backgroundSetupDone = preferencesRepository.backgroundSetupDone
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun markBackgroundSetupDone() {
+        viewModelScope.launch { preferencesRepository.setBackgroundSetupDone(true) }
+    }
 
     fun selectPreset(preset: SchedulePreset) {
         _selectedPreset.value = preset

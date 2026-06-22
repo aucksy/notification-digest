@@ -28,6 +28,10 @@ interface PreferencesRepository {
     val driveLastBackupAt: Flow<Long>
     suspend fun setDriveLastBackupAt(millis: Long)
 
+    /** Whether the user has been through the "allow background running" setup (self-attested on return). */
+    val backgroundSetupDone: Flow<Boolean>
+    suspend fun setBackgroundSetupDone(done: Boolean)
+
     /**
      * Lifetime count of interruptions avoided (every genuinely-new Digest notification suppressed).
      * Monotonic — never decremented by retention purges — and included in the backup so the headline

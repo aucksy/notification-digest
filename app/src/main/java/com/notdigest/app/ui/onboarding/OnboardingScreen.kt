@@ -82,15 +82,22 @@ fun OnboardingScreen(
         ActivityResultContracts.StartActivityForResult(),
     ) { result -> viewModel.onDriveSignInResult(result.data) }
 
+    val backgroundDone by viewModel.backgroundSetupDone.collectAsStateWithLifecycle()
     var accessGranted by remember { mutableStateOf(NotificationAccessState.isGranted(context)) }
     var batteryExempt by remember { mutableStateOf(BatteryOptimizationState.isIgnoring(context)) }
     var pendingOemGuide by remember { mutableStateOf(false) }
+    // Set when we send the user to the OEM battery screen; on their return we mark the step done.
+    var awaitingBackgroundReturn by remember { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         accessGranted = NotificationAccessState.isGranted(context)
         batteryExempt = BatteryOptimizationState.isIgnoring(context)
         if (pendingOemGuide) {
             pendingOemGuide = false
             BatteryOptimizationState.openAppBatterySettings(context)
+            awaitingBackgroundReturn = true
+        } else if (awaitingBackgroundReturn) {
+            awaitingBackgroundReturn = false
+            viewModel.markBackgroundSetupDone()
         }
     }
 
@@ -143,8 +150,10 @@ fun OnboardingScreen(
                     },
                 )
                 4 -> BackgroundReliabilityPage(
+                    done = backgroundDone,
                     onAllow = {
                         if (batteryExempt) {
+                            awaitingBackgroundReturn = true
                             BatteryOptimizationState.openAppBatterySettings(context)
                         } else {
                             pendingOemGuide = true
@@ -278,21 +287,27 @@ private fun GrantAccessPage(granted: Boolean, onGrant: () -> Unit) {
 }
 
 @Composable
-private fun BackgroundReliabilityPage(onAllow: () -> Unit) {
+private fun BackgroundReliabilityPage(done: Boolean, onAllow: () -> Unit) {
     OnboardingPage(
-        icon = Icons.Filled.Bolt,
-        title = "Keep notifications flowing",
-        body = "To save power, your phone can stop this app in the background — then it can't collect your notifications. Allow it to keep running so nothing is missed.",
+        icon = if (done) Icons.Filled.CheckCircle else Icons.Filled.Bolt,
+        title = if (done) "You're set" else "Keep notifications flowing",
+        body = if (done) {
+            "Background running is set up. If notifications ever stop arriving, you can re-check this in Settings."
+        } else {
+            "To save power, your phone can stop this app in the background — then it can't collect your notifications. Allow it to keep running so nothing is missed."
+        },
         extra = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Button(onClick = onAllow) { Text("Allow background running") }
-                Spacer(Modifier.height(Spacing.md))
-                Text(
-                    "Then set this app's battery use to “Unrestricted” (some phones say “Allow background activity”). Avoid “Optimised” or “Smart” — those can still stop it.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
+            if (!done) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Button(onClick = onAllow) { Text("Allow background running") }
+                    Spacer(Modifier.height(Spacing.md))
+                    Text(
+                        "Then set this app's battery use to “Unrestricted” (some phones say “Allow background activity”). Avoid “Optimised” or “Smart” — those can still stop it.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         },
     )

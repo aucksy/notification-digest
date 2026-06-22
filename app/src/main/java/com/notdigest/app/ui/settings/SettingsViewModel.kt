@@ -51,6 +51,12 @@ class SettingsViewModel @Inject constructor(
     val preferences = preferencesRepository.preferences
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserPreferences())
 
+    /** Whether the user has gone through the "allow background running" setup (self-attested). */
+    val backgroundSetupDone = preferencesRepository.backgroundSetupDone
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setBackgroundSetupDone(done: Boolean) = launch { preferencesRepository.setBackgroundSetupDone(done) }
+
     private val exportChannel = Channel<String>(Channel.BUFFERED)
     val exportData = exportChannel.receiveAsFlow()
 
@@ -141,7 +147,6 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setThemeMode(mode: ThemeMode) = launch { preferencesRepository.setThemeMode(mode) }
-    fun setDynamicColor(enabled: Boolean) = launch { preferencesRepository.setDynamicColor(enabled) }
     fun setRetentionDays(days: Int) = launch { preferencesRepository.setRetentionDays(days) }
     fun setHaptics(enabled: Boolean) = launch { preferencesRepository.setHapticsEnabled(enabled) }
     fun setRecommendations(enabled: Boolean) = launch { preferencesRepository.setRecommendationsEnabled(enabled) }

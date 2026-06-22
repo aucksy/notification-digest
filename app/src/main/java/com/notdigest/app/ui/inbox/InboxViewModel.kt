@@ -32,33 +32,44 @@ data class AppFilterOption(val packageName: String, val appName: String, val cou
 /** A transient message for the snackbar. When [undo] is non-null, an Undo action is shown. */
 data class InboxMessage(val text: String, val undo: (suspend () -> Unit)? = null)
 
-/** One day's worth of delivered notifications, shown as a collapsible section ("Today", "Yesterday", …). */
+/** One day's worth of delivered notifications. */
 data class DaySection(
     val date: LocalDate,
     val label: String,
-    val defaultExpanded: Boolean,
-    val expanded: Boolean,
     val notifications: List<AppNotification>,
 ) {
     val count: Int get() = notifications.size
-    /** Stable key for expand/collapse overrides. */
     val key: Long get() = date.toEpochDay()
 }
 
+/** The collapsible "Older" group: every day before yesterday, split into per-date subgroups. */
+data class OlderGroup(
+    val count: Int,
+    val expanded: Boolean,
+    val dates: List<DaySection>,
+)
+
 data class InboxUiState(
-    val groups: List<DaySection> = emptyList(),
+    val today: DaySection? = null,
+    val yesterday: DaySection? = null,
+    val older: OlderGroup? = null,
     val apps: List<AppFilterOption> = emptyList(),
-    val availableDates: List<LocalDate> = emptyList(),
     val query: String = "",
     val appFilter: String? = null,
-    val selectedDate: LocalDate? = null,
     val selectedIds: Set<Long> = emptySet(),
     val isDelivering: Boolean = false,
     val archivedCount: Int = 0,
     val totalDelivered: Int = 0,
 ) {
     val selectionMode: Boolean get() = selectedIds.isNotEmpty()
-    val isEmpty: Boolean get() = groups.isEmpty()
+    val isEmpty: Boolean get() = today == null && yesterday == null && older == null
+
+    /** Every notification currently loaded (today + yesterday + all older dates), regardless of expand. */
+    fun loaded(): List<AppNotification> = buildList {
+        today?.let { addAll(it.notifications) }
+        yesterday?.let { addAll(it.notifications) }
+        older?.dates?.forEach { addAll(it.notifications) }
+    }
 }
 
 @HiltViewModel
@@ -73,94 +84,88 @@ class InboxViewModel @Inject constructor(
 
     private val query = MutableStateFlow("")
     private val appFilter = MutableStateFlow<String?>(null)
-    private val selectedDate = MutableStateFlow<LocalDate?>(null)
     private val selectedIds = MutableStateFlow<Set<Long>>(emptySet())
     private val isDelivering = MutableStateFlow(false)
-    private val expandOverrides = MutableStateFlow<Map<Long, Boolean>>(emptyMap())
+    private val olderExpanded = MutableStateFlow(false)
 
     private val messageChannel = Channel<InboxMessage>(Channel.BUFFERED)
     val messages = messageChannel.receiveAsFlow()
 
-    // The Inbox shows EVERY captured notification (waiting + delivered), grouped by day — so nothing is
-    // invisible just because a digest hasn't run yet. Delivery still drives the digest summary + stats.
-    private val allNotifications = query.flatMapLatest { q ->
-        if (q.isBlank()) notificationRepository.observeAll()
-        else notificationRepository.searchAll(q)
+    // Only DELIVERED notifications appear here. Waiting (suppressed) ones stay hidden until their digest
+    // time, or until the user taps "see all now" — that suppression is the core of the app.
+    private val delivered = query.flatMapLatest { q ->
+        if (q.isBlank()) notificationRepository.observeDelivered()
+        else notificationRepository.searchDelivered(q)
     }
 
     private data class Core(
-        val sections: List<DaySection>,
+        val today: DaySection?,
+        val yesterday: DaySection?,
+        val older: List<DaySection>,
         val apps: List<AppFilterOption>,
-        val dates: List<LocalDate>,
         val query: String,
         val appFilter: String?,
-        val selectedDate: LocalDate?,
-        val totalDelivered: Int,
+        val total: Int,
     )
 
     private val core = combine(
-        allNotifications,
+        delivered,
         query,
         appFilter,
-        selectedDate,
-        // Re-emits at each local midnight so "Today"/"Yesterday" labels and default-expansion roll over
-        // even if the inbox stays open across midnight.
+        // Re-emits at each local midnight so Today/Yesterday/Older roll over even if the inbox stays open.
         localDayFlow(zone),
-    ) { list, q, filter, date, today ->
+    ) { list, q, filter, today ->
         val yesterday = today.minusDays(1)
 
         // Collapse exact duplicates an app re-fired within a delivery (same app + title + text).
         val deduped = list.distinctBy { listOf(it.digestId, it.packageName, it.title, it.text) }
         val byApp = if (filter == null) deduped else deduped.filter { it.packageName == filter }
 
-        // Group by each notification's OWN day, so "Yesterday" means yesterday's notifications —
-        // not "whatever digest happened to run yesterday".
-        var sections = byApp
-            .groupBy { localDateOf(it.postedAt) }
-            .map { (day, notifs) ->
-                DaySection(
-                    date = day,
-                    label = TimeFormatter.dateChip(day, today),
-                    // Today and Yesterday open by default; anything older starts collapsed.
-                    defaultExpanded = day == today || day == yesterday,
-                    expanded = false,
-                    notifications = notifs.sortedByDescending { it.postedAt },
-                )
-            }
-            .sortedByDescending { it.date }
+        // Group by each notification's OWN day, so "Yesterday" means yesterday's notifications.
+        val byDay = byApp.groupBy { localDateOf(it.postedAt) }
+        fun section(day: LocalDate): DaySection? = byDay[day]?.takeIf { it.isNotEmpty() }?.let { notifs ->
+            DaySection(day, TimeFormatter.dateChip(day, today), notifs.sortedByDescending { it.postedAt })
+        }
 
-        if (date != null) sections = sections.filter { it.date == date }
+        val olderDates = byDay.keys
+            .filter { it.isBefore(yesterday) }
+            .sortedDescending()
+            .mapNotNull { section(it) }
 
         val apps = deduped
             .groupBy { it.packageName }
             .map { (pkg, items) -> AppFilterOption(pkg, items.first().appName, items.size) }
             .sortedByDescending { it.count }
 
-        val dates = deduped.map { localDateOf(it.postedAt) }.distinct().sortedDescending()
-
-        Core(sections, apps, dates, q, filter, date, deduped.size)
+        Core(section(today), section(yesterday), olderDates, apps, q, filter, deduped.size)
     }
 
     val uiState = combine(
         core,
         selectedIds,
         isDelivering,
-        expandOverrides,
+        olderExpanded,
         notificationRepository.observePendingCount(),
-    ) { c, sel, delivering, overrides, archived ->
-        val sections = c.sections.map { s -> s.copy(expanded = overrides[s.key] ?: s.defaultExpanded) }
-        val visibleIds = c.sections.flatMap { it.notifications.map { n -> n.id } }.toSet()
+    ) { c, sel, delivering, expanded, archived ->
+        val older = c.older.takeIf { it.isNotEmpty() }?.let { dates ->
+            OlderGroup(count = dates.sumOf { it.count }, expanded = expanded, dates = dates)
+        }
+        val loadedIds = buildList {
+            c.today?.let { addAll(it.notifications) }
+            c.yesterday?.let { addAll(it.notifications) }
+            c.older.forEach { addAll(it.notifications) }
+        }.map { it.id }.toSet()
         InboxUiState(
-            groups = sections,
+            today = c.today,
+            yesterday = c.yesterday,
+            older = older,
             apps = c.apps,
-            availableDates = c.dates,
             query = c.query,
             appFilter = c.appFilter,
-            selectedDate = c.selectedDate,
-            selectedIds = sel.intersect(visibleIds),
+            selectedIds = sel.intersect(loadedIds),
             isDelivering = delivering,
             archivedCount = archived,
-            totalDelivered = c.totalDelivered,
+            totalDelivered = c.total,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), InboxUiState())
 
@@ -173,11 +178,7 @@ class InboxViewModel @Inject constructor(
         appFilter.value = if (appFilter.value == packageName) null else packageName
     }
 
-    fun setSelectedDate(date: LocalDate?) { selectedDate.value = date }
-
-    fun setGroupExpanded(key: Long, expanded: Boolean) {
-        expandOverrides.value = expandOverrides.value + (key to expanded)
-    }
+    fun toggleOlder() { olderExpanded.value = !olderExpanded.value }
 
     fun toggleSelection(id: Long) {
         selectedIds.value = selectedIds.value.toMutableSet().apply { if (!add(id)) remove(id) }
@@ -188,7 +189,7 @@ class InboxViewModel @Inject constructor(
     fun clearSelection() { selectedIds.value = emptySet() }
 
     fun selectAll() {
-        selectedIds.value = uiState.value.groups.flatMap { it.notifications.map { n -> n.id } }.toSet()
+        selectedIds.value = uiState.value.loaded().map { it.id }.toSet()
     }
 
     fun open(notification: AppNotification) {
@@ -199,7 +200,7 @@ class InboxViewModel @Inject constructor(
     }
 
     fun delete(ids: List<Long>) {
-        val removed = uiState.value.groups.flatMap { it.notifications }.filter { it.id in ids }
+        val removed = uiState.value.loaded().filter { it.id in ids }
         viewModelScope.launch {
             notificationRepository.delete(ids)
             selectedIds.value = selectedIds.value - ids.toSet()
@@ -221,10 +222,7 @@ class InboxViewModel @Inject constructor(
 
     fun markAllRead() {
         viewModelScope.launch {
-            // The Inbox shows pending AND delivered, so clear unread on both — otherwise pending rows
-            // stay bold and the "Marked all as read" toast would be a lie.
             notificationRepository.markAllDeliveredRead()
-            notificationRepository.markAllPendingRead()
             messageChannel.send(InboxMessage("Marked all as read"))
         }
     }

@@ -1,9 +1,6 @@
 package com.notdigest.app.ui.theme
 
-import android.os.Build
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -11,7 +8,6 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import com.notdigest.app.domain.model.ThemeMode
 
 /** Extra, non-Material brand tokens layered on top of the Material color scheme. */
@@ -43,22 +39,14 @@ object NotDigestTheme {
 @Composable
 fun NotDigestTheme(
     themeMode: ThemeMode,
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val systemDark = isSystemInDarkTheme()
     val dark = when (themeMode) {
-        ThemeMode.SYSTEM -> systemDark
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
     }
-    val context = LocalContext.current
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
-            if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        dark -> DarkColors
-        else -> LightColors
-    }
+    val colorScheme = if (dark) DarkColors else LightColors
 
     val brand = BrandColors(
         positive = Positive,

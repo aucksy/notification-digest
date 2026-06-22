@@ -9,6 +9,7 @@ import com.notdigest.app.domain.repository.InstalledAppsRepository
 import com.notdigest.app.domain.usecase.SyncInstalledAppRulesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -24,6 +25,10 @@ data class AppRowItem(
     val appName: String,
     val mode: DigestMode,
     val isSystem: Boolean,
+    // When the user toggles an app out of the current filter, it stays rendered (showing its new mode)
+    // and slides away before the rule actually changes — Digest exits right, Real-Time exits left.
+    val exiting: Boolean = false,
+    val exitToRight: Boolean = false,
 )
 
 data class AppsUiState(
@@ -52,6 +57,10 @@ class AppsViewModel @Inject constructor(
     private val filter = MutableStateFlow(AppsFilter.ALL)
     private val selected = MutableStateFlow<Set<String>>(emptySet())
     private val loading = MutableStateFlow(true)
+
+    /** Apps mid-exit-animation: package -> the change to commit once the slide-out finishes. */
+    private data class ExitAnim(val appName: String, val targetMode: DigestMode, val toRight: Boolean)
+    private val exiting = MutableStateFlow<Map<String, ExitAnim>>(emptyMap())
 
     private val eventChannel = Channel<String>(Channel.BUFFERED)
     val events = eventChannel.receiveAsFlow()
@@ -94,8 +103,17 @@ class AppsViewModel @Inject constructor(
         )
     }
 
-    val uiState = combine(core, loading) { state, isLoading ->
-        state.copy(loading = isLoading && state.apps.isEmpty())
+    val uiState = combine(core, loading, exiting) { state, isLoading, exit ->
+        // Overlay exiting apps: show their new mode (so the toggle animates) and keep them in the list
+        // until the slide-out finishes. They still match the filter here because the rule hasn't changed yet.
+        val apps = if (exit.isEmpty()) {
+            state.apps
+        } else {
+            state.apps.map { item ->
+                exit[item.packageName]?.let { item.copy(mode = it.targetMode, exiting = true, exitToRight = it.toRight) } ?: item
+            }
+        }
+        state.copy(apps = apps, loading = isLoading && state.apps.isEmpty())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppsUiState())
 
     init {
@@ -126,7 +144,35 @@ class AppsViewModel @Inject constructor(
 
     fun setMode(item: AppRowItem, mode: DigestMode) {
         if (item.mode == mode) return
-        viewModelScope.launch { appRuleRepository.setMode(item.packageName, item.appName, mode) }
+        val activeFilterMode = filterModeOf(filter.value)
+        if (activeFilterMode != null && activeFilterMode != mode) {
+            // The app will drop out of the current filter — animate it out first, then commit.
+            exiting.value = exiting.value +
+                (item.packageName to ExitAnim(item.appName, mode, toRight = item.mode == DigestMode.DIGEST))
+            // Fallback: if the slide-out never reports back (e.g. the user leaves the screen mid-swipe),
+            // still commit shortly after so the change is never lost.
+            viewModelScope.launch {
+                delay(EXIT_FALLBACK_MS)
+                commitExit(item.packageName)
+            }
+        } else {
+            viewModelScope.launch { appRuleRepository.setMode(item.packageName, item.appName, mode) }
+        }
+    }
+
+    /** Called when an app's slide-out animation finishes: apply the deferred mode change. */
+    fun onExitFinished(packageName: String) = commitExit(packageName)
+
+    private fun commitExit(packageName: String) {
+        val anim = exiting.value[packageName] ?: return
+        exiting.value = exiting.value - packageName
+        viewModelScope.launch { appRuleRepository.setMode(packageName, anim.appName, anim.targetMode) }
+    }
+
+    private fun filterModeOf(f: AppsFilter): DigestMode? = when (f) {
+        AppsFilter.DIGEST -> DigestMode.DIGEST
+        AppsFilter.REALTIME -> DigestMode.REALTIME
+        AppsFilter.ALL -> null
     }
 
     fun toggleSelection(packageName: String) {
@@ -147,5 +193,10 @@ class AppsViewModel @Inject constructor(
             clearSelection()
             eventChannel.send("${targets.size} apps set to ${if (mode == DigestMode.DIGEST) "Digest" else "Real-Time"}")
         }
+    }
+
+    private companion object {
+        // Slightly longer than the row's slide-out so the animation normally drives the commit.
+        const val EXIT_FALLBACK_MS = 450L
     }
 }

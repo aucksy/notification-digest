@@ -73,12 +73,16 @@ fun SettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showClearConfirm by remember { mutableStateOf(false) }
 
+    val backgroundDone by viewModel.backgroundSetupDone.collectAsStateWithLifecycle()
     var accessGranted by remember { mutableStateOf(NotificationAccessState.isGranted(context)) }
     var batteryExempt by remember { mutableStateOf(BatteryOptimizationState.isIgnoring(context)) }
     var batteryRestricted by remember { mutableStateOf(BatteryOptimizationState.isBackgroundRestricted(context)) }
     // After the standard battery dialog is dismissed, take the user straight to their phone's own
     // (OEM) background-control screen — the second setting only they can change.
     var pendingOemGuide by remember { mutableStateOf(false) }
+    // Set when we send the user to the OEM battery screen; on their return we mark the setup "done"
+    // (self-attested — the OEM "Unrestricted" choice isn't readable by any API).
+    var awaitingBackgroundReturn by remember { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         accessGranted = NotificationAccessState.isGranted(context)
         batteryExempt = BatteryOptimizationState.isIgnoring(context)
@@ -86,6 +90,10 @@ fun SettingsScreen(
         if (pendingOemGuide) {
             pendingOemGuide = false
             BatteryOptimizationState.openAppBatterySettings(context)
+            awaitingBackgroundReturn = true
+        } else if (awaitingBackgroundReturn) {
+            awaitingBackgroundReturn = false
+            viewModel.setBackgroundSetupDone(true)
         }
     }
 
@@ -142,40 +150,62 @@ fun SettingsScreen(
             }
 
             // --- Keep running reliably (battery / background) ---
+            // "Done" once the user has been through the setup — unless the phone reports the app is
+            // outright "Restricted", which we CAN read and which always means it's misconfigured.
             SettingsGroup(title = "Keep running reliably") {
-                NotDigestCard {
-                    Text(
-                        "To save power, your phone can stop this app in the background — then it misses notifications. Let it always run in the background:",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(Spacing.sm))
-                    Text(
-                        "1.  Tap “Allow background running” below.\n2.  Open Battery and choose “Unrestricted” — some phones say “Allow background activity”.\n3.  Avoid “Optimised” or “Smart”; they can still stop the app.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    if (batteryRestricted) {
+                if (backgroundDone && !batteryRestricted) {
+                    NotDigestCard {
+                        Text(
+                            "✓ Background running is set up",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            "Notifications should arrive reliably. If some still slip through, re-check your phone's battery setting for this app.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        TextButton(onClick = {
+                            awaitingBackgroundReturn = true
+                            BatteryOptimizationState.openAppBatterySettings(context)
+                        }) { Text("Re-check battery setting") }
+                    }
+                } else {
+                    NotDigestCard {
+                        Text(
+                            "To save power, your phone can stop this app in the background — then it misses notifications. Let it always run in the background:",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         Spacer(Modifier.height(Spacing.sm))
                         Text(
-                            "⚠ This app is “Restricted” in the background — that keeps stopping it. Switch it to “Unrestricted”.",
+                            "1.  Tap “Allow background running” below.\n2.  Open Battery and choose “Unrestricted” — some phones say “Allow background activity”.\n3.  Avoid “Optimised” or “Smart”; they can still stop the app.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
-                    }
-                }
-                NavRow(
-                    title = "Allow background running",
-                    subtitle = "Set battery to “Unrestricted”",
-                    onClick = {
-                        if (batteryExempt) {
-                            BatteryOptimizationState.openAppBatterySettings(context)
-                        } else {
-                            pendingOemGuide = true
-                            BatteryOptimizationState.requestIgnore(context)
+                        if (batteryRestricted) {
+                            Spacer(Modifier.height(Spacing.sm))
+                            Text(
+                                "⚠ This app is “Restricted” in the background — that keeps stopping it. Switch it to “Unrestricted”.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error,
+                            )
                         }
-                    },
-                )
+                    }
+                    NavRow(
+                        title = "Allow background running",
+                        subtitle = "Set battery to “Unrestricted”",
+                        onClick = {
+                            if (batteryExempt) {
+                                awaitingBackgroundReturn = true
+                                BatteryOptimizationState.openAppBatterySettings(context)
+                            } else {
+                                pendingOemGuide = true
+                                BatteryOptimizationState.requestIgnore(context)
+                            }
+                        },
+                    )
+                }
             }
 
             // --- Appearance ---
@@ -191,14 +221,6 @@ fun SettingsScreen(
                             ) { Text(label) }
                         }
                     }
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    SwitchRow(
-                        title = "Dynamic color",
-                        subtitle = "Match your wallpaper's palette",
-                        checked = prefs.dynamicColor,
-                        onCheckedChange = viewModel::setDynamicColor,
-                    )
                 }
             }
 
@@ -222,19 +244,19 @@ fun SettingsScreen(
             SettingsGroup(title = "Sounds") {
                 NotDigestCard {
                     Text(
-                        "Why a Digest app can still make one sound",
+                        "Why an app set to Digest may still beep once",
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        "Android only lets this app tuck a notification away *after* it arrives, so a brand-new Digest notification can make one brief sound before it disappears (repeated sounds from the same app are already prevented).\n\nFor complete silence from a specific noisy app, open its notification settings and switch it to Silent — it'll still be collected and batched here.",
+                        "Android plays a notification's sound the moment it arrives — before any app can step in — then we hide it. So the first one may beep; repeats from the same app are silenced.\n\nWant a noisy app completely silent? Set it to Silent in its own settings. It'll still be collected here.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 NavRow(
-                    title = "Open notification settings",
-                    subtitle = "Set a noisy app to Silent at the source",
+                    title = "Silence an app at the source",
+                    subtitle = "Open its notification settings and choose Silent",
                     onClick = { openNotificationSettings(context) },
                 )
             }

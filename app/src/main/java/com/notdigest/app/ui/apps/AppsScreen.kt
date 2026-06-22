@@ -1,5 +1,11 @@
 package com.notdigest.app.ui.apps
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -55,6 +61,8 @@ import com.notdigest.app.ui.components.EmptyState
 import com.notdigest.app.ui.components.ModeToggle
 import com.notdigest.app.ui.theme.NotDigestTheme
 import com.notdigest.app.ui.theme.Spacing
+
+private const val EXIT_DURATION_MS = 300
 
 @Composable
 fun AppsScreen(
@@ -152,6 +160,7 @@ fun AppsScreen(
                                 onModeChange = { viewModel.setMode(app, it) },
                                 onToggleSelect = { viewModel.toggleSelection(app.packageName) },
                                 onLongPress = { viewModel.startSelection(app.packageName) },
+                                onExitFinished = { viewModel.onExitFinished(app.packageName) },
                             )
                         }
                     }
@@ -250,40 +259,54 @@ private fun AppRow(
     onModeChange: (DigestMode) -> Unit,
     onToggleSelect: () -> Unit,
     onLongPress: () -> Unit,
+    onExitFinished: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.large)
-            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else NotDigestTheme.brand.surfaceElevated)
-            .combinedClickable(
-                onClick = { if (selectionMode) onToggleSelect() },
-                onLongClick = onLongPress,
-            )
-            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+    val visibleState = remember { MutableTransitionState(true) }
+    LaunchedEffect(item.exiting) { if (item.exiting) visibleState.targetState = false }
+    // Once the slide-out has fully played, tell the VM to commit the mode change (drops the row).
+    LaunchedEffect(visibleState.isIdle) {
+        if (item.exiting && visibleState.isIdle && !visibleState.currentState) onExitFinished()
+    }
+    AnimatedVisibility(
+        visibleState = visibleState,
+        exit = slideOutHorizontally(animationSpec = tween(EXIT_DURATION_MS)) { width ->
+            if (item.exitToRight) width else -width
+        } + fadeOut(tween(EXIT_DURATION_MS)) + shrinkVertically(tween(EXIT_DURATION_MS)),
     ) {
-        if (selectionMode) {
-            Box(
-                Modifier.size(24.dp).clip(CircleShape)
-                    .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (selected) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .background(if (selected) MaterialTheme.colorScheme.primaryContainer else NotDigestTheme.brand.surfaceElevated)
+                .combinedClickable(
+                    onClick = { if (selectionMode) onToggleSelect() },
+                    onLongClick = onLongPress,
+                )
+                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        ) {
+            if (selectionMode) {
+                Box(
+                    Modifier.size(24.dp).clip(CircleShape)
+                        .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (selected) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                }
             }
-        }
-        AppIcon(packageName = item.packageName, fallbackLabel = item.appName, size = 40.dp)
-        Text(
-            item.appName,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        if (!selectionMode) {
-            ModeToggle(mode = item.mode, onChange = onModeChange)
+            AppIcon(packageName = item.packageName, fallbackLabel = item.appName, size = 40.dp)
+            Text(
+                item.appName,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (!selectionMode) {
+                ModeToggle(mode = item.mode, onChange = onModeChange)
+            }
         }
     }
 }

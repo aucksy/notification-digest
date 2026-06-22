@@ -47,7 +47,7 @@ class MainActivity : ComponentActivity() {
 
             val is24Hour = remember { DateFormat.is24HourFormat(this) }
 
-            NotDigestTheme(themeMode = state.themeMode, dynamicColor = state.dynamicColor) {
+            NotDigestTheme(themeMode = state.themeMode) {
                 CompositionLocalProvider(
                     LocalIs24Hour provides is24Hour,
                     LocalAppIconLoader provides appIconLoader,

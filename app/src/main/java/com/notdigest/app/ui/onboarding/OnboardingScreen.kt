@@ -48,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -85,12 +86,15 @@ fun OnboardingScreen(
     val backgroundDone by viewModel.backgroundSetupDone.collectAsStateWithLifecycle()
     var accessGranted by remember { mutableStateOf(NotificationAccessState.isGranted(context)) }
     var batteryExempt by remember { mutableStateOf(BatteryOptimizationState.isIgnoring(context)) }
-    var pendingOemGuide by remember { mutableStateOf(false) }
+    var batteryRestricted by remember { mutableStateOf(BatteryOptimizationState.isBackgroundRestricted(context)) }
+    // Saveable so the handshake survives Activity recreation while the user is away in system Settings.
+    var pendingOemGuide by rememberSaveable { mutableStateOf(false) }
     // Set when we send the user to the OEM battery screen; on their return we mark the step done.
-    var awaitingBackgroundReturn by remember { mutableStateOf(false) }
+    var awaitingBackgroundReturn by rememberSaveable { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         accessGranted = NotificationAccessState.isGranted(context)
         batteryExempt = BatteryOptimizationState.isIgnoring(context)
+        batteryRestricted = BatteryOptimizationState.isBackgroundRestricted(context)
         if (pendingOemGuide) {
             pendingOemGuide = false
             BatteryOptimizationState.openAppBatterySettings(context)
@@ -150,7 +154,7 @@ fun OnboardingScreen(
                     },
                 )
                 4 -> BackgroundReliabilityPage(
-                    done = backgroundDone,
+                    done = backgroundDone && !batteryRestricted,
                     onAllow = {
                         if (batteryExempt) {
                             awaitingBackgroundReturn = true

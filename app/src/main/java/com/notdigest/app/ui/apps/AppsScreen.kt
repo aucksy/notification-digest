@@ -262,7 +262,8 @@ private fun AppRow(
     onExitFinished: () -> Unit,
 ) {
     val visibleState = remember { MutableTransitionState(true) }
-    LaunchedEffect(item.exiting) { if (item.exiting) visibleState.targetState = false }
+    // Slide out while exiting; slide back in if the exit is superseded (the user re-toggled in time).
+    LaunchedEffect(item.exiting) { visibleState.targetState = !item.exiting }
     // Once the slide-out has fully played, tell the VM to commit the mode change (drops the row).
     LaunchedEffect(visibleState.isIdle) {
         if (item.exiting && visibleState.isIdle && !visibleState.currentState) onExitFinished()

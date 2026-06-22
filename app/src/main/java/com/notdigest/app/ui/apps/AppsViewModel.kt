@@ -8,6 +8,7 @@ import com.notdigest.app.domain.repository.AppRuleRepository
 import com.notdigest.app.domain.repository.InstalledAppsRepository
 import com.notdigest.app.domain.usecase.SyncInstalledAppRulesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,6 +62,7 @@ class AppsViewModel @Inject constructor(
     /** Apps mid-exit-animation: package -> the change to commit once the slide-out finishes. */
     private data class ExitAnim(val appName: String, val targetMode: DigestMode, val toRight: Boolean)
     private val exiting = MutableStateFlow<Map<String, ExitAnim>>(emptyMap())
+    private val exitJobs = mutableMapOf<String, Job>()
 
     private val eventChannel = Channel<String>(Channel.BUFFERED)
     val events = eventChannel.receiveAsFlow()
@@ -144,6 +146,9 @@ class AppsViewModel @Inject constructor(
 
     fun setMode(item: AppRowItem, mode: DigestMode) {
         if (item.mode == mode) return
+        // Any prior in-flight exit for this app is now superseded — drop it (and its armed fallback) so
+        // a stale deferred commit can never overwrite this newer action.
+        cancelPendingExit(item.packageName)
         val activeFilterMode = filterModeOf(filter.value)
         if (activeFilterMode != null && activeFilterMode != mode) {
             // The app will drop out of the current filter — animate it out first, then commit.
@@ -151,7 +156,7 @@ class AppsViewModel @Inject constructor(
                 (item.packageName to ExitAnim(item.appName, mode, toRight = item.mode == DigestMode.DIGEST))
             // Fallback: if the slide-out never reports back (e.g. the user leaves the screen mid-swipe),
             // still commit shortly after so the change is never lost.
-            viewModelScope.launch {
+            exitJobs[item.packageName] = viewModelScope.launch {
                 delay(EXIT_FALLBACK_MS)
                 commitExit(item.packageName)
             }
@@ -165,8 +170,15 @@ class AppsViewModel @Inject constructor(
 
     private fun commitExit(packageName: String) {
         val anim = exiting.value[packageName] ?: return
+        exitJobs.remove(packageName)?.cancel()
         exiting.value = exiting.value - packageName
         viewModelScope.launch { appRuleRepository.setMode(packageName, anim.appName, anim.targetMode) }
+    }
+
+    /** Forget a deferred exit without committing it (superseded by a newer authoritative change). */
+    private fun cancelPendingExit(packageName: String) {
+        exitJobs.remove(packageName)?.cancel()
+        if (exiting.value.containsKey(packageName)) exiting.value = exiting.value - packageName
     }
 
     private fun filterModeOf(f: AppsFilter): DigestMode? = when (f) {
@@ -189,6 +201,8 @@ class AppsViewModel @Inject constructor(
         viewModelScope.launch {
             val byPkg = uiState.value.apps.associateBy { it.packageName }
             val targets = selected.value.mapNotNull { byPkg[it]?.let { app -> app.packageName to app.appName } }
+            // This bulk write is authoritative — drop any deferred per-app exits it would otherwise race.
+            targets.forEach { cancelPendingExit(it.first) }
             appRuleRepository.setModeForAll(targets, mode)
             clearSelection()
             eventChannel.send("${targets.size} apps set to ${if (mode == DigestMode.DIGEST) "Digest" else "Real-Time"}")

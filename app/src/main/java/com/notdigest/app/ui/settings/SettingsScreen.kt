@@ -43,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,10 +80,11 @@ fun SettingsScreen(
     var batteryRestricted by remember { mutableStateOf(BatteryOptimizationState.isBackgroundRestricted(context)) }
     // After the standard battery dialog is dismissed, take the user straight to their phone's own
     // (OEM) background-control screen — the second setting only they can change.
-    var pendingOemGuide by remember { mutableStateOf(false) }
+    // Saveable so the handshake survives Activity recreation while the user is away in system Settings.
+    var pendingOemGuide by rememberSaveable { mutableStateOf(false) }
     // Set when we send the user to the OEM battery screen; on their return we mark the setup "done"
     // (self-attested — the OEM "Unrestricted" choice isn't readable by any API).
-    var awaitingBackgroundReturn by remember { mutableStateOf(false) }
+    var awaitingBackgroundReturn by rememberSaveable { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         accessGranted = NotificationAccessState.isGranted(context)
         batteryExempt = BatteryOptimizationState.isIgnoring(context)

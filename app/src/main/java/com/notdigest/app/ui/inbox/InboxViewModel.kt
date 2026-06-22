@@ -221,7 +221,10 @@ class InboxViewModel @Inject constructor(
 
     fun markAllRead() {
         viewModelScope.launch {
+            // The Inbox shows pending AND delivered, so clear unread on both — otherwise pending rows
+            // stay bold and the "Marked all as read" toast would be a lie.
             notificationRepository.markAllDeliveredRead()
+            notificationRepository.markAllPendingRead()
             messageChannel.send(InboxMessage("Marked all as read"))
         }
     }

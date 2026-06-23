@@ -43,6 +43,7 @@ import com.notdigest.app.ui.LocalIs24Hour
 import com.notdigest.app.ui.components.AnimatedCount
 import com.notdigest.app.ui.components.EmptyState
 import com.notdigest.app.ui.components.GradientHeroCard
+import com.notdigest.app.ui.components.MindBlownEmoji
 import com.notdigest.app.ui.components.NotDigestCard
 import com.notdigest.app.ui.components.SectionHeader
 import com.notdigest.app.ui.theme.Spacing
@@ -276,24 +277,39 @@ private fun StatsRow(stats: NotificationStats, onOpenRealtimeApps: () -> Unit) {
             value = stats.lifetimeAvoided.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
             label = "Archived · all time",
             modifier = Modifier.weight(1f),
+            // 🤯 milestone: a long-time user who's crossed 100,000 batched notifications earns the easter egg.
+            mindBlown = stats.lifetimeAvoided >= 100_000L,
         )
         StatTile(value = stats.realtimeAppCount, label = "Real-Time apps", modifier = Modifier.weight(1f), onClick = onOpenRealtimeApps)
     }
 }
 
 @Composable
-private fun StatTile(value: Int, label: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+private fun StatTile(
+    value: Int,
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    mindBlown: Boolean = false,
+) {
     NotDigestCard(
         modifier = if (onClick != null) modifier.clickable(onClick = onClick) else modifier,
         contentPadding = PaddingValues(Spacing.lg),
     ) {
-        AnimatedCount(
-            target = value,
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Spacer(Modifier.height(Spacing.xxs))
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(Modifier.fillMaxWidth()) {
+            Column {
+                AnimatedCount(
+                    target = value,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.height(Spacing.xxs))
+                Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (mindBlown) {
+                MindBlownEmoji(modifier = Modifier.align(Alignment.TopEnd), size = 18.dp)
+            }
+        }
     }
 }
 

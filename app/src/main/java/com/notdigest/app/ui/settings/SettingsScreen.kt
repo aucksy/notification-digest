@@ -60,6 +60,7 @@ import com.notdigest.app.core.util.TimeFormatter
 import com.notdigest.app.domain.model.ThemeMode
 import com.notdigest.app.service.BatteryOptimizationState
 import com.notdigest.app.service.NotificationAccessState
+import com.notdigest.app.ui.components.MindBlownEmoji
 import com.notdigest.app.ui.components.NotDigestCard
 import com.notdigest.app.ui.theme.Spacing
 
@@ -335,12 +336,23 @@ fun SettingsScreen(
                 }
             }
 
-            Text(
-                "Notification Digest v${BuildConfig.VERSION_NAME}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // Tap the version 10× to preview the 100,000-milestone 🤯 easter egg right here.
+            var versionTaps by rememberSaveable { mutableStateOf(0) }
+            Column(
                 modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
-            )
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    "Notification Digest v${BuildConfig.VERSION_NAME}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.clickable { if (versionTaps < 10) versionTaps++ },
+                )
+                if (versionTaps >= 10) {
+                    Spacer(Modifier.height(Spacing.sm))
+                    MindBlownEmoji(size = 26.dp)
+                }
+            }
         }
 
         SnackbarHost(

@@ -17,7 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import com.notdigest.app.domain.model.DigestMode
 import com.notdigest.app.ui.theme.NotDigestTheme
 import com.notdigest.app.ui.theme.Spacing
@@ -35,7 +37,19 @@ fun AnimatedCount(
         animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
         label = "animated-count",
     )
-    Text(text = animated.toString(), style = style, color = color, modifier = modifier)
+    val text = animated.toString()
+    // Shrink big numbers so a long-time user's "all time" total (100,000+) never clips the narrow tile.
+    val scaledStyle = if (style.fontSize.isSpecified && text.length > 4) {
+        val factor = when (text.length) {
+            5 -> 0.82f
+            6 -> 0.68f
+            else -> 0.56f
+        }
+        style.copy(fontSize = style.fontSize * factor)
+    } else {
+        style
+    }
+    Text(text = text, style = scaledStyle, color = color, modifier = modifier, maxLines = 1, softWrap = false, overflow = TextOverflow.Visible)
 }
 
 /** Small dot used to indicate unread state. */

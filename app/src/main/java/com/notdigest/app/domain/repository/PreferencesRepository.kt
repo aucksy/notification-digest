@@ -32,6 +32,14 @@ interface PreferencesRepository {
     val backgroundSetupDone: Flow<Boolean>
     suspend fun setBackgroundSetupDone(done: Boolean)
 
+    /** Epoch millis of the last time the Inbox was viewed — drives "new since your last visit" dots. */
+    val inboxSeenAt: Flow<Long>
+    suspend fun setInboxSeenAt(millis: Long)
+
+    /** Packages that have already shown the one-time "swipe right → Real-Time" hint. */
+    val swipeHintedPackages: Flow<Set<String>>
+    suspend fun addSwipeHintedPackage(packageName: String)
+
     /**
      * Lifetime count of interruptions avoided (every genuinely-new Digest notification suppressed).
      * Monotonic — never decremented by retention purges — and included in the backup so the headline

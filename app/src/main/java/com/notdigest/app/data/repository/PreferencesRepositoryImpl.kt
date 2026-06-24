@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.notdigest.app.core.Constants
 import com.notdigest.app.domain.model.ThemeMode
 import com.notdigest.app.domain.model.UserPreferences
@@ -37,6 +38,8 @@ class PreferencesRepositoryImpl @Inject constructor(
         val DRIVE_LAST_BACKUP = longPreferencesKey("drive_last_backup_at")
         val LIFETIME_AVOIDED = longPreferencesKey("lifetime_avoided")
         val BG_SETUP_DONE = booleanPreferencesKey("background_setup_done")
+        val INBOX_SEEN_AT = longPreferencesKey("inbox_seen_at")
+        val SWIPE_HINTED = stringSetPreferencesKey("swipe_hinted_packages")
     }
 
     override val preferences: Flow<UserPreferences> = dataStore.data.map { p ->
@@ -117,6 +120,20 @@ class PreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setBackgroundSetupDone(done: Boolean) {
         dataStore.edit { it[Keys.BG_SETUP_DONE] = done }
+    }
+
+    override val inboxSeenAt: Flow<Long> =
+        dataStore.data.map { it[Keys.INBOX_SEEN_AT] ?: 0L }.distinctUntilChanged()
+
+    override suspend fun setInboxSeenAt(millis: Long) {
+        dataStore.edit { it[Keys.INBOX_SEEN_AT] = millis }
+    }
+
+    override val swipeHintedPackages: Flow<Set<String>> =
+        dataStore.data.map { it[Keys.SWIPE_HINTED] ?: emptySet() }.distinctUntilChanged()
+
+    override suspend fun addSwipeHintedPackage(packageName: String) {
+        dataStore.edit { it[Keys.SWIPE_HINTED] = (it[Keys.SWIPE_HINTED] ?: emptySet()) + packageName }
     }
 
     override val lifetimeAvoided: Flow<Long> =

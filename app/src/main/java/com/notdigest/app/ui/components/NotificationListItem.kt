@@ -32,6 +32,9 @@ fun NotificationListItem(
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     showAppName: Boolean = true,
+    // Defaults to the per-notification read flag; the inbox overrides this with its view-based "new
+    // since your last visit" signal.
+    unread: Boolean = !notification.isRead,
 ) {
     Row(
         modifier = modifier
@@ -54,13 +57,13 @@ fun NotificationListItem(
                 Text(
                     text = if (showAppName) notification.appName else notification.title.ifBlank { notification.appName },
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = if (notification.isRead) FontWeight.Medium else FontWeight.SemiBold,
+                    fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                if (!notification.isRead) UnreadDot()
+                if (unread) UnreadDot()
             }
             Text(
                 text = if (showAppName) notification.preview else notification.text,

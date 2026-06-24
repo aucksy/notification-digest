@@ -1,7 +1,10 @@
 package com.notdigest.app.ui.inbox
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -65,7 +68,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.notdigest.app.domain.model.AppNotification
 import com.notdigest.app.ui.LocalHapticsEnabled
@@ -90,6 +96,21 @@ fun InboxScreen(
     val haptic = LocalHapticFeedback.current
     val hapticsOn = LocalHapticsEnabled.current
     val buzz = { if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress) }
+
+    val seenThreshold by viewModel.seenThreshold.collectAsStateWithLifecycle()
+    val hintPackages by viewModel.hintPackages.collectAsStateWithLifecycle()
+    // Capture the "new since last visit" line on entry; advance it on leave.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onInboxResumed() }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { viewModel.onInboxLeft() }
+    // One notification id per hint-eligible app (its first row) gets the swipe nudge.
+    val hintIds = remember(state.today, state.yesterday, state.older, hintPackages) {
+        val seenPkgs = HashSet<String>()
+        val ids = HashSet<Long>()
+        state.loaded().forEach { n ->
+            if (n.packageName in hintPackages && seenPkgs.add(n.packageName)) ids.add(n.id)
+        }
+        ids
+    }
 
     LaunchedEffect(Unit) {
         viewModel.messages.collect { msg ->
@@ -181,11 +202,11 @@ fun InboxScreen(
 
                     state.today?.let { sec ->
                         stickyHeader(key = "today") { DayHeader(sec.label, sec.count) }
-                        notificationRows(sec.notifications, state, viewModel, buzz)
+                        notificationRows(sec.notifications, state, viewModel, buzz, seenThreshold, hintIds)
                     }
                     state.yesterday?.let { sec ->
                         stickyHeader(key = "yesterday") { DayHeader(sec.label, sec.count) }
-                        notificationRows(sec.notifications, state, viewModel, buzz)
+                        notificationRows(sec.notifications, state, viewModel, buzz, seenThreshold, hintIds)
                     }
                     state.older?.let { older ->
                         stickyHeader(key = "older") {
@@ -194,7 +215,7 @@ fun InboxScreen(
                         if (older.expanded) {
                             older.dates.forEach { date ->
                                 item(key = "older-${date.key}") { DateSubHeader(date.label, date.count) }
-                                notificationRows(date.notifications, state, viewModel, buzz)
+                                notificationRows(date.notifications, state, viewModel, buzz, seenThreshold, hintIds)
                             }
                         }
                     }
@@ -283,12 +304,17 @@ private fun androidx.compose.foundation.lazy.LazyListScope.notificationRows(
     state: InboxUiState,
     viewModel: InboxViewModel,
     buzz: () -> Unit,
+    seenThreshold: Long,
+    hintIds: Set<Long>,
 ) {
     items(notifications, key = { it.id }) { notification ->
         SwipeableNotificationRow(
             notification = notification,
             selectionMode = state.selectionMode,
             selected = notification.id in state.selectedIds,
+            unread = (notification.deliveredAt ?: notification.postedAt) > seenThreshold,
+            hint = notification.id in hintIds,
+            onHintShown = { viewModel.markHinted(notification.packageName) },
             onOpen = { viewModel.open(notification) },
             onDelete = { buzz(); viewModel.delete(listOf(notification.id)) },
             onMakeRealtime = { buzz(); viewModel.makeAppRealtime(notification.packageName, notification.appName) },
@@ -471,6 +497,9 @@ private fun SwipeableNotificationRow(
     notification: AppNotification,
     selectionMode: Boolean,
     selected: Boolean,
+    unread: Boolean,
+    hint: Boolean,
+    onHintShown: () -> Unit,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
     onMakeRealtime: () -> Unit,
@@ -488,42 +517,76 @@ private fun SwipeableNotificationRow(
     )
     val rowBackground = if (selected) MaterialTheme.colorScheme.primaryContainer else NotDigestTheme.brand.surfaceElevated
 
-    SwipeToDismissBox(
-        state = dismissState,
-        enableDismissFromStartToEnd = !selectionMode,
-        enableDismissFromEndToStart = !selectionMode,
-        backgroundContent = { SwipeBackground(dismissState.dismissDirection) },
-        modifier = Modifier.clip(MaterialTheme.shapes.large),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(rowBackground)
-                .combinedClickable(
-                    onClick = { if (selectionMode) onToggleSelect() else onOpen() },
-                    onLongClick = onLongPress,
+    // One-time hint: nudge the row right twice to reveal the green "Real-Time" affordance, teaching
+    // the swipe. Only the first row of a not-yet-handled app gets this (decided upstream).
+    val nudge = remember { Animatable(0f) }
+    LaunchedEffect(hint) {
+        if (hint) {
+            delay(500)
+            nudge.animateTo(36f, tween(280))
+            nudge.animateTo(0f, tween(240))
+            nudge.animateTo(26f, tween(240))
+            nudge.animateTo(0f, tween(220))
+            onHintShown()
+        }
+    }
+
+    Box(Modifier.clip(MaterialTheme.shapes.large)) {
+        if (nudge.value > 0.5f) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .clip(MaterialTheme.shapes.large)
+                    .background(NotDigestTheme.brand.positive),
+            ) {
+                Icon(
+                    Icons.Filled.Bolt,
+                    contentDescription = "Swipe right to make Real-Time",
+                    tint = Color.White,
+                    modifier = Modifier.align(Alignment.CenterStart).padding(start = 12.dp),
                 )
-                .padding(horizontal = Spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (selectionMode) {
-                Box(
-                    modifier = Modifier
-                        .padding(start = Spacing.xs)
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (selected) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                }
             }
-            NotificationListItem(
-                notification = notification,
-                // No inner onClick — the row's combinedClickable handles tap AND long-press-to-select.
-                onClick = null,
-                modifier = Modifier.weight(1f),
-            )
+        }
+        SwipeToDismissBox(
+            state = dismissState,
+            enableDismissFromStartToEnd = !selectionMode,
+            enableDismissFromEndToStart = !selectionMode,
+            backgroundContent = { SwipeBackground(dismissState.dismissDirection) },
+            modifier = Modifier
+                .offset { IntOffset(nudge.value.dp.roundToPx(), 0) }
+                .clip(MaterialTheme.shapes.large),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(rowBackground)
+                    .combinedClickable(
+                        onClick = { if (selectionMode) onToggleSelect() else onOpen() },
+                        onLongClick = onLongPress,
+                    )
+                    .padding(horizontal = Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (selectionMode) {
+                    Box(
+                        modifier = Modifier
+                            .padding(start = Spacing.xs)
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (selected) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                    }
+                }
+                NotificationListItem(
+                    notification = notification,
+                    // No inner onClick — the row's combinedClickable handles tap AND long-press-to-select.
+                    onClick = null,
+                    modifier = Modifier.weight(1f),
+                    unread = unread,
+                )
+            }
         }
     }
 }

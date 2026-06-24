@@ -9,6 +9,7 @@ import com.notdigest.app.domain.model.DigestMode
 import com.notdigest.app.domain.model.DigestType
 import com.notdigest.app.domain.repository.AppRuleRepository
 import com.notdigest.app.domain.repository.NotificationRepository
+import com.notdigest.app.domain.repository.PreferencesRepository
 import com.notdigest.app.domain.system.LaunchResult
 import com.notdigest.app.domain.usecase.DeliverDigestUseCase
 import com.notdigest.app.domain.usecase.DeliverResult
@@ -17,7 +18,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -78,6 +82,7 @@ class InboxViewModel @Inject constructor(
     private val appRuleRepository: AppRuleRepository,
     private val deliverDigestUseCase: DeliverDigestUseCase,
     private val openNotificationUseCase: OpenNotificationUseCase,
+    private val preferencesRepository: PreferencesRepository,
 ) : ViewModel() {
 
     private val zone: ZoneId = ZoneId.systemDefault()
@@ -90,6 +95,35 @@ class InboxViewModel @Inject constructor(
 
     private val messageChannel = Channel<InboxMessage>(Channel.BUFFERED)
     val messages = messageChannel.receiveAsFlow()
+
+    // #1 — view-based unread dots. A notification is "new" if its delivery is more recent than the last
+    // time the user left the Inbox. Captured on resume (so the dots persist for the whole visit) and
+    // advanced on leave (so the same items aren't new next visit).
+    private val _seenThreshold = MutableStateFlow(0L)
+    val seenThreshold: StateFlow<Long> = _seenThreshold.asStateFlow()
+
+    fun onInboxResumed() {
+        viewModelScope.launch { _seenThreshold.value = preferencesRepository.inboxSeenAt.first() }
+    }
+
+    fun onInboxLeft() {
+        viewModelScope.launch { preferencesRepository.setInboxSeenAt(System.currentTimeMillis()) }
+    }
+
+    // #2 — apps eligible for the one-time "swipe right → Real-Time" hint: still on the default Digest
+    // (updatedAt == 0, i.e. the user hasn't set them) and not yet hinted.
+    val hintPackages: StateFlow<Set<String>> = combine(
+        appRuleRepository.observeRules(),
+        preferencesRepository.swipeHintedPackages,
+    ) { rules, hinted ->
+        rules.filter { it.mode == DigestMode.DIGEST && it.updatedAt == 0L }
+            .map { it.packageName }
+            .toSet() - hinted
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    fun markHinted(packageName: String) {
+        viewModelScope.launch { preferencesRepository.addSwipeHintedPackage(packageName) }
+    }
 
     // Only DELIVERED notifications appear here. Waiting (suppressed) ones stay hidden until their digest
     // time, or until the user taps "see all now" — that suppression is the core of the app.
@@ -222,6 +256,11 @@ class InboxViewModel @Inject constructor(
 
     fun markAllRead() {
         viewModelScope.launch {
+            // Advance the "seen" line to now so every current dot clears immediately (view-based model),
+            // and keep the per-notification read flag in sync for History.
+            val now = System.currentTimeMillis()
+            _seenThreshold.value = now
+            preferencesRepository.setInboxSeenAt(now)
             notificationRepository.markAllDeliveredRead()
             messageChannel.send(InboxMessage("Marked all as read"))
         }

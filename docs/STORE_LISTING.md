@@ -46,14 +46,19 @@ Notification Digest needs Notification access to read and batch your notificatio
 Take back your attention. Let the noise wait for you.
 ```
 
-## Graphic assets (you produce these)
+## Graphic assets
 
-| Asset | Spec | How |
-|-------|------|-----|
-| **App icon** | 512×512 PNG, 32-bit | Easiest: in **Android Studio → res → right-click `ic_launcher` → “Show in Resource Manager” → export**, or open the project and use **Image Asset / drawable preview** to export a 512 PNG. (Or render `ic_launcher_foreground` over the plum gradient at 512×512.) Ask me and I can provide a standalone 512 SVG master to convert. |
-| **Feature graphic** | 1024×500 PNG/JPG | The plum gradient with the mark + “Notification Digest — calm, batched notifications”. |
-| **Phone screenshots** | 2–8, ~1080×1920 | Capture on a device: `adb exec-out screencap -p > 1-home.png`. Suggested set: Home (hero + stats), Inbox grouped by day, Apps (Digest/Real-Time toggles), a delivered digest, Settings (privacy section). |
-| (optional) Tablet shots, promo video | — | Nice-to-have, not required. |
+The two required graphics are **already generated and committed** — upload them as-is:
+
+| Asset | Spec | File (in repo) | Status |
+|-------|------|----------------|--------|
+| **App icon** | 512×512 PNG, 32-bit | [`play/assets/ic_play_512.png`](../play/assets/ic_play_512.png) | ✅ Ready — rendered 1:1 from the in-app adaptive icon (plum gradient + card stack + clock badge). |
+| **Feature graphic** | 1024×500 PNG, 24-bit (no alpha) | [`play/assets/feature_graphic_1024x500.png`](../play/assets/feature_graphic_1024x500.png) | ✅ Ready — wordmark + tagline on brand plum. |
+| **Phone screenshots** | 2–8, ~1080×1920 (you capture) | — | ⏳ Capture on a device: `adb exec-out screencap -p > 1-home.png`. Suggested set: Home (hero + stats), Inbox grouped by day, Apps (Digest/Real-Time toggles), a delivered digest, Settings (privacy section). |
+| (optional) Tablet shots, promo video | — | — | Nice-to-have, not required. |
+
+> Editable masters live alongside the PNGs (`play/assets/icon-master.svg`, `feature-master.svg`); see
+> [`play/README.md`](../play/README.md) to re-render if you ever want to tweak copy or colours.
 
 ## Release notes (first release)
 

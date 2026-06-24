@@ -71,7 +71,7 @@ the user's **own** Google Drive (which the developer cannot access). Recommended
 
 | Form | Answer |
 |------|--------|
-| **Privacy policy URL** | Host `docs/PRIVACY_POLICY.md` (GitHub Pages / a Google Site / your domain) and paste the URL. |
+| **Privacy policy URL** | **Live:** `https://aucksy.github.io/notification-digest/` (GitHub Pages, served from `docs/index.html`). Paste this exact URL. |
 | **Ads** | **No ads.** |
 | **App access** | All features available without an account/login. (Note Drive backup is optional and self-service — no reviewer credentials needed.) |
 | **Content rating** | Complete the questionnaire honestly → expect **Everyone**. |

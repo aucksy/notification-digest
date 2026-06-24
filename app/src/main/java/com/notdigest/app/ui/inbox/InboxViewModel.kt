@@ -98,8 +98,9 @@ class InboxViewModel @Inject constructor(
 
     // #1 — view-based unread dots. A notification is "new" if its delivery is more recent than the last
     // time the user left the Inbox. Captured on resume (so the dots persist for the whole visit) and
-    // advanced on leave (so the same items aren't new next visit).
-    private val _seenThreshold = MutableStateFlow(0L)
+    // advanced on leave (so the same items aren't new next visit). Starts at MAX_VALUE so nothing is
+    // drawn as unread until the real threshold loads — avoids an all-dots flash on first frame.
+    private val _seenThreshold = MutableStateFlow(Long.MAX_VALUE)
     val seenThreshold: StateFlow<Long> = _seenThreshold.asStateFlow()
 
     fun onInboxResumed() {

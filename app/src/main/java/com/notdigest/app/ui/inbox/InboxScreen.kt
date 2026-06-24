@@ -140,7 +140,6 @@ fun InboxScreen(
                     count = state.selectedIds.size,
                     onClose = viewModel::clearSelection,
                     onSelectAll = viewModel::selectAll,
-                    onMarkRead = { viewModel.markRead(state.selectedIds.toList()) },
                     onDelete = { buzz(); viewModel.delete(state.selectedIds.toList()) },
                 )
             } else {
@@ -423,7 +422,6 @@ private fun SelectionBar(
     count: Int,
     onClose: () -> Unit,
     onSelectAll: () -> Unit,
-    onMarkRead: () -> Unit,
     onDelete: () -> Unit,
 ) {
     Row(
@@ -440,9 +438,6 @@ private fun SelectionBar(
         }
         Row {
             TextButton(onClick = onSelectAll) { Text("All") }
-            IconButton(onClick = onMarkRead) {
-                Icon(Icons.Filled.DoneAll, "Mark read", tint = MaterialTheme.colorScheme.onPrimaryContainer)
-            }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.onPrimaryContainer)
             }
@@ -522,12 +517,18 @@ private fun SwipeableNotificationRow(
     val nudge = remember { Animatable(0f) }
     LaunchedEffect(hint) {
         if (hint) {
-            delay(500)
-            nudge.animateTo(36f, tween(280))
-            nudge.animateTo(0f, tween(240))
-            nudge.animateTo(26f, tween(240))
-            nudge.animateTo(0f, tween(220))
-            onHintShown()
+            try {
+                delay(300)
+                nudge.animateTo(36f, tween(280))
+                nudge.animateTo(0f, tween(240))
+                nudge.animateTo(26f, tween(240))
+                nudge.animateTo(0f, tween(220))
+            } finally {
+                // Persist even if the row is disposed mid-nudge (tab switch / scroll-off / a newer
+                // delivery from the same app) so the hint never repeats for this app. markHinted runs
+                // in the ViewModel scope, so it survives this row's cancellation.
+                onHintShown()
+            }
         }
     }
 

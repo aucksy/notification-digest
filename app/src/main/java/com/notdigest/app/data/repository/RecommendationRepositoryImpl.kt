@@ -42,11 +42,10 @@ class RecommendationRepositoryImpl @Inject constructor(
                     weeklyCount = cnt,
                 )
             }
-            // A dismissed suggestion stays hidden until the app's volume grows materially (>1.5x).
-            val dismissedSet = dismissed
-                .filter { d -> (counts[d.packageName] ?: 0) <= d.countAtDismiss * 1.5 }
-                .map { it.packageName }
-                .toSet()
+            // A dismissed suggestion is gone for good: once the user dismisses an app's suggestion we
+            // never surface it again, no matter how noisy that app later becomes. (They can still move
+            // the app to Digest themselves anytime.) countAtDismiss is retained only for history.
+            val dismissedSet = dismissed.map { it.packageName }.toSet()
 
             generate(volumes, dismissedSet)
         }

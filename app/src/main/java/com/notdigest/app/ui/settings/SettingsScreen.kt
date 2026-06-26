@@ -60,8 +60,10 @@ import com.notdigest.app.core.util.TimeFormatter
 import com.notdigest.app.domain.model.ThemeMode
 import com.notdigest.app.service.BatteryOptimizationState
 import com.notdigest.app.service.NotificationAccessState
+import com.notdigest.app.ui.LocalIs24Hour
 import com.notdigest.app.ui.components.MindBlownEmoji
 import com.notdigest.app.ui.components.NotDigestCard
+import com.notdigest.app.ui.components.TimePickerDialog
 import com.notdigest.app.ui.theme.Spacing
 
 @Composable
@@ -214,7 +216,12 @@ fun SettingsScreen(
             // --- Appearance ---
             SettingsGroup(title = "Appearance") {
                 LabeledControl("Theme") {
-                    val options = listOf(ThemeMode.SYSTEM to "System", ThemeMode.LIGHT to "Light", ThemeMode.DARK to "Dark")
+                    val options = listOf(
+                        ThemeMode.SYSTEM to "System",
+                        ThemeMode.LIGHT to "Light",
+                        ThemeMode.DARK to "Dark",
+                        ThemeMode.SCHEDULED to "Auto",
+                    )
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                         options.forEachIndexed { index, (mode, label) ->
                             SegmentedButton(
@@ -223,6 +230,15 @@ fun SettingsScreen(
                                 shape = SegmentedButtonDefaults.itemShape(index, options.size),
                             ) { Text(label) }
                         }
+                    }
+                    if (prefs.themeMode == ThemeMode.SCHEDULED) {
+                        ScheduledDarkWindow(
+                            startMinute = prefs.darkModeStartTime,
+                            endMinute = prefs.darkModeEndTime,
+                            is24Hour = LocalIs24Hour.current,
+                            onStartChange = viewModel::setDarkModeStartTime,
+                            onEndChange = viewModel::setDarkModeEndTime,
+                        )
                     }
                 }
             }
@@ -508,6 +524,53 @@ private fun SettingsGroup(title: String, content: @Composable () -> Unit) {
         NotDigestCard {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.lg)) { content() }
         }
+    }
+}
+
+private enum class WindowEdit { Start, End }
+
+/** The "Dark from [time] to [time]" editor shown under the Theme control when Auto is selected. */
+@Composable
+private fun ScheduledDarkWindow(
+    startMinute: Int,
+    endMinute: Int,
+    is24Hour: Boolean,
+    onStartChange: (Int) -> Unit,
+    onEndChange: (Int) -> Unit,
+) {
+    var editing by remember { mutableStateOf<WindowEdit?>(null) }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+    ) {
+        Text("Dark from", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OutlinedButton(onClick = { editing = WindowEdit.Start }) {
+            Text(TimeFormatter.clockOf(startMinute / 60, startMinute % 60, is24Hour))
+        }
+        Text("to", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OutlinedButton(onClick = { editing = WindowEdit.End }) {
+            Text(TimeFormatter.clockOf(endMinute / 60, endMinute % 60, is24Hour))
+        }
+    }
+    when (editing) {
+        WindowEdit.Start -> TimePickerDialog(
+            initialHour = startMinute / 60,
+            initialMinute = startMinute % 60,
+            is24Hour = is24Hour,
+            title = "Dark mode starts",
+            onConfirm = { h, m -> onStartChange(h * 60 + m); editing = null },
+            onDismiss = { editing = null },
+        )
+        WindowEdit.End -> TimePickerDialog(
+            initialHour = endMinute / 60,
+            initialMinute = endMinute % 60,
+            is24Hour = is24Hour,
+            title = "Dark mode ends",
+            onConfirm = { h, m -> onEndChange(h * 60 + m); editing = null },
+            onDismiss = { editing = null },
+        )
+        null -> Unit
     }
 }
 

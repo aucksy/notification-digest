@@ -20,6 +20,15 @@ interface AppRuleRepository {
      */
     suspend fun getMode(packageName: String): DigestMode
 
+    /**
+     * Resolve [packageName]'s mode, seeding an *untouched default* rule (`updatedAt = 0L`) the first
+     * time we ever encounter the app. Unlike [getMode] (a pure read), this persists a row, so a
+     * brand-new app — installed after the initial seed and never opened in the Apps list — appears in
+     * the management list and becomes eligible for the one-time swipe-to-Real-Time hint. Returns the
+     * existing mode unchanged if a rule already exists (never overwrites a user's choice).
+     */
+    suspend fun ensureSeeded(packageName: String, appName: String, isSystemApp: Boolean): DigestMode
+
     suspend fun setMode(packageName: String, appName: String, mode: DigestMode)
 
     suspend fun setModeForAll(packages: List<Pair<String, String>>, mode: DigestMode)

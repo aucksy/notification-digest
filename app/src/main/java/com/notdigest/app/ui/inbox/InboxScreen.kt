@@ -73,6 +73,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.notdigest.app.core.util.isNotificationUnread
 import com.notdigest.app.domain.model.AppNotification
 import com.notdigest.app.ui.LocalHapticsEnabled
 import com.notdigest.app.ui.components.AppIcon
@@ -311,7 +312,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.notificationRows(
             notification = notification,
             selectionMode = state.selectionMode,
             selected = notification.id in state.selectedIds,
-            unread = (notification.deliveredAt ?: notification.postedAt) > seenThreshold,
+            unread = isNotificationUnread(notification.deliveredAt, notification.postedAt, seenThreshold),
             hint = notification.id in hintIds,
             onHintShown = { viewModel.markHinted(notification.packageName) },
             onOpen = { viewModel.open(notification) },
@@ -509,6 +510,10 @@ private fun SwipeableNotificationRow(
                 SwipeToDismissBoxValue.Settled -> false
             }
         },
+        // Require a deliberate drag (60% of the row) before either action commits. The Material default
+        // is small enough that horizontal drift during a vertical scroll could trigger a stray Delete /
+        // Make-Real-Time; this makes accidental swipes snap back instead.
+        positionalThreshold = { totalDistance -> totalDistance * 0.6f },
     )
     val rowBackground = if (selected) MaterialTheme.colorScheme.primaryContainer else NotDigestTheme.brand.surfaceElevated
 

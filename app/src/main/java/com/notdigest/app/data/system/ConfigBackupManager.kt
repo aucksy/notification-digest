@@ -207,6 +207,8 @@ class ConfigBackupManager @Inject constructor(
 
         json.optJSONObject("prefs")?.let { p ->
             runCatching { preferencesRepository.setThemeMode(ThemeMode.valueOf(p.optString("theme"))) }
+            preferencesRepository.setDarkModeStartTime(p.optInt("darkStart", 20 * 60))
+            preferencesRepository.setDarkModeEndTime(p.optInt("darkEnd", 6 * 60))
             preferencesRepository.setDynamicColor(p.optBoolean("dynamic", true))
             preferencesRepository.setRetentionDays(p.optInt("retention", Constants.DEFAULT_RETENTION_DAYS))
             preferencesRepository.setHapticsEnabled(p.optBoolean("haptics", true))
@@ -227,6 +229,8 @@ class ConfigBackupManager @Inject constructor(
 
     private fun UserPreferences.toJson(): JSONObject = JSONObject()
         .put("theme", themeMode.name)
+        .put("darkStart", darkModeStartTime)
+        .put("darkEnd", darkModeEndTime)
         .put("dynamic", dynamicColor)
         .put("retention", retentionDays)
         .put("haptics", hapticsEnabled)

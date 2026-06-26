@@ -45,6 +45,9 @@ fun NotDigestTheme(
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
+        // SCHEDULED is resolved to LIGHT/DARK upstream (AppViewModel) before reaching here; fall back to
+        // the system setting if it ever arrives unresolved (e.g. a preview passing it directly).
+        ThemeMode.SCHEDULED -> isSystemInDarkTheme()
     }
     val colorScheme = if (dark) DarkColors else LightColors
 

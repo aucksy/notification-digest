@@ -134,7 +134,14 @@ class DigestNotificationListenerService : NotificationListenerService() {
     /** Slow path used until the mode cache is warm: confirm the mode against the DB, then suppress. */
     private suspend fun processWithLookup(captured: CapturedNotification, countRealtime: Boolean = true) {
         try {
-            if (appRuleRepository.getMode(captured.packageName) != DigestMode.DIGEST) {
+            // ensureSeeded (not getMode) so a brand-new app gets a default rule row the first time it
+            // posts — making it visible in the Apps list and eligible for the one-time swipe hint.
+            if (appRuleRepository.ensureSeeded(
+                    captured.packageName,
+                    captured.appName,
+                    isSystemApp(captured.packageName),
+                ) != DigestMode.DIGEST
+            ) {
                 // Real-Time (or critical) app — record its volume (no content) for noisy-app suggestions.
                 if (countRealtime) {
                     runCatching { realtimeStats.record(captured.packageName, captured.appName, captured.postedAt) }

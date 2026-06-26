@@ -39,6 +39,28 @@ class AppRuleRepositoryImpl @Inject constructor(
         return if (CriticalDefaults.isCritical(packageName, packageName)) DigestMode.REALTIME else DigestMode.DIGEST
     }
 
+    override suspend fun ensureSeeded(packageName: String, appName: String, isSystemApp: Boolean): DigestMode {
+        dao.getByPackage(packageName)?.let {
+            return runCatching { DigestMode.valueOf(it.mode) }.getOrDefault(DigestMode.DIGEST)
+        }
+        // Mirror getMode's default: never blindly batch a critical app (SMS/OTP/dialer/…).
+        val mode = if (CriticalDefaults.isCritical(packageName, appName)) DigestMode.REALTIME else DigestMode.DIGEST
+        // Seed as an untouched default (updatedAt = 0L). insertIgnore so a concurrent full re-seed
+        // (listener reconnect) can't double-insert, and a real user choice later wins via upsert.
+        dao.insertIgnore(
+            listOf(
+                AppRuleEntity(
+                    packageName = packageName,
+                    appName = appName,
+                    mode = mode.name,
+                    isSystemApp = isSystemApp,
+                    updatedAt = 0L,
+                ),
+            ),
+        )
+        return mode
+    }
+
     override suspend fun setMode(packageName: String, appName: String, mode: DigestMode) {
         val existing = dao.getByPackage(packageName)
         dao.upsert(

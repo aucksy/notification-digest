@@ -147,6 +147,8 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setThemeMode(mode: ThemeMode) = launch { preferencesRepository.setThemeMode(mode) }
+    fun setDarkModeStartTime(minuteOfDay: Int) = launch { preferencesRepository.setDarkModeStartTime(minuteOfDay) }
+    fun setDarkModeEndTime(minuteOfDay: Int) = launch { preferencesRepository.setDarkModeEndTime(minuteOfDay) }
     fun setRetentionDays(days: Int) = launch { preferencesRepository.setRetentionDays(days) }
     fun setHaptics(enabled: Boolean) = launch { preferencesRepository.setHapticsEnabled(enabled) }
     fun setRecommendations(enabled: Boolean) = launch { preferencesRepository.setRecommendationsEnabled(enabled) }

@@ -26,6 +26,8 @@ class PreferencesRepositoryImpl @Inject constructor(
 
     private object Keys {
         val THEME = stringPreferencesKey("theme_mode")
+        val DARK_START = intPreferencesKey("dark_mode_start_time")
+        val DARK_END = intPreferencesKey("dark_mode_end_time")
         val DYNAMIC = booleanPreferencesKey("dynamic_color")
         val RETENTION = intPreferencesKey("retention_days")
         val HAPTICS = booleanPreferencesKey("haptics_enabled")
@@ -46,6 +48,8 @@ class PreferencesRepositoryImpl @Inject constructor(
         UserPreferences(
             themeMode = p[Keys.THEME]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
                 ?: ThemeMode.SYSTEM,
+            darkModeStartTime = p[Keys.DARK_START] ?: (20 * 60),
+            darkModeEndTime = p[Keys.DARK_END] ?: (6 * 60),
             dynamicColor = p[Keys.DYNAMIC] ?: true,
             retentionDays = p[Keys.RETENTION] ?: Constants.DEFAULT_RETENTION_DAYS,
             hapticsEnabled = p[Keys.HAPTICS] ?: true,
@@ -61,6 +65,14 @@ class PreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setThemeMode(mode: ThemeMode) {
         dataStore.edit { it[Keys.THEME] = mode.name }
+    }
+
+    override suspend fun setDarkModeStartTime(minuteOfDay: Int) {
+        dataStore.edit { it[Keys.DARK_START] = minuteOfDay.coerceIn(0, 1439) }
+    }
+
+    override suspend fun setDarkModeEndTime(minuteOfDay: Int) {
+        dataStore.edit { it[Keys.DARK_END] = minuteOfDay.coerceIn(0, 1439) }
     }
 
     override suspend fun setDynamicColor(enabled: Boolean) {

@@ -8,6 +8,7 @@ import com.notdigest.app.domain.model.DigestMode
 import com.notdigest.app.domain.model.DigestType
 import com.notdigest.app.domain.model.NotificationStats
 import com.notdigest.app.domain.repository.AppRuleRepository
+import com.notdigest.app.domain.repository.PreferencesRepository
 import com.notdigest.app.domain.repository.RecommendationRepository
 import com.notdigest.app.domain.repository.ScheduleRepository
 import com.notdigest.app.domain.repository.StatsRepository
@@ -46,6 +47,7 @@ class HomeViewModel @Inject constructor(
     private val computeNextDigestTime: ComputeNextDigestTimeUseCase,
     private val time: TimeProvider,
     private val appsFilterRequest: AppsFilterRequest,
+    preferencesRepository: PreferencesRepository,
 ) : ViewModel() {
 
     private val isDelivering = MutableStateFlow(false)
@@ -57,11 +59,13 @@ class HomeViewModel @Inject constructor(
         scheduleRepository.observeSchedules(),
         recommendationRepository.observeRecommendations(),
         isDelivering,
-    ) { stats, schedules, recs, delivering ->
+        // Honor the "Smart suggestions" toggle: when off, surface no recommendation cards at all.
+        preferencesRepository.preferences,
+    ) { stats, schedules, recs, delivering, prefs ->
         HomeUiState(
             stats = stats,
             nextDigestAt = computeNextDigestTime(schedules, time.now()),
-            recommendations = recs,
+            recommendations = if (prefs.recommendationsEnabled) recs else emptyList(),
             isDelivering = delivering,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())

@@ -12,6 +12,11 @@ interface PreferencesRepository {
     suspend fun snapshot(): UserPreferences
 
     suspend fun setThemeMode(mode: ThemeMode)
+
+    /** Scheduled-theme window bounds, as minute-of-day (0..1439). */
+    suspend fun setDarkModeStartTime(minuteOfDay: Int)
+    suspend fun setDarkModeEndTime(minuteOfDay: Int)
+
     suspend fun setDynamicColor(enabled: Boolean)
     suspend fun setRetentionDays(days: Int)
     suspend fun setHapticsEnabled(enabled: Boolean)

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -103,6 +104,17 @@ fun InboxScreen(
     // Capture the "new since last visit" line on entry; advance it on leave.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onInboxResumed() }
     LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { viewModel.onInboxLeft() }
+
+    // Opened from a digest notification → jump to the top (newest), overriding the scroll position the
+    // bottom-bar state restoration would otherwise bring back. A normal tab switch leaves it untouched.
+    val listState = rememberLazyListState()
+    val scrollToTop by viewModel.scrollToTop.collectAsStateWithLifecycle()
+    LaunchedEffect(scrollToTop) {
+        if (scrollToTop) {
+            listState.scrollToItem(0)
+            viewModel.consumeScrollToTop()
+        }
+    }
     // One notification id per hint-eligible app (its first row) gets the swipe nudge.
     val hintIds = remember(state.today, state.yesterday, state.older, hintPackages) {
         val seenPkgs = HashSet<String>()
@@ -180,6 +192,7 @@ fun InboxScreen(
                 )
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = Spacing.screen,

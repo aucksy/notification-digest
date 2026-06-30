@@ -83,7 +83,13 @@ class InboxViewModel @Inject constructor(
     private val deliverDigestUseCase: DeliverDigestUseCase,
     private val openNotificationUseCase: OpenNotificationUseCase,
     private val preferencesRepository: PreferencesRepository,
+    private val inboxScrollRequest: InboxScrollRequest,
 ) : ViewModel() {
+
+    /** Set when the app is opened from a digest notification — the inbox should jump to the top. */
+    val scrollToTop: StateFlow<Boolean> = inboxScrollRequest.scrollToTop
+
+    fun consumeScrollToTop() { inboxScrollRequest.consume() }
 
     private val zone: ZoneId = ZoneId.systemDefault()
 

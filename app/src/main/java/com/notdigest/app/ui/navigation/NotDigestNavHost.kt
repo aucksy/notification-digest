@@ -61,6 +61,7 @@ fun NotDigestNavHost(
     startDestination: String,
     deepLinkRoute: String?,
     onDeepLinkConsumed: () -> Unit,
+    onInboxOpenedFromLink: () -> Unit = {},
 ) {
     val navController = rememberNavController()
 
@@ -75,6 +76,8 @@ fun NotDigestNavHost(
         }
         if (route in NavRoutes.BOTTOM_BAR) {
             navController.navigateTab(route)
+            // Only now that we've genuinely landed on the Inbox: ask it to jump to the newest items.
+            if (route == NavRoutes.INBOX) onInboxOpenedFromLink()
         } else {
             navController.navigate(route) { launchSingleTop = true }
         }

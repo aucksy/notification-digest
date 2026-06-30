@@ -539,19 +539,25 @@ private fun ScheduledDarkWindow(
     onEndChange: (Int) -> Unit,
 ) {
     var editing by remember { mutableStateOf<WindowEdit?>(null) }
+    // Two equal-weight pills with a centred "to" — so they're symmetric and the second one can never
+    // get squeezed into a two-line wrap (the bug), regardless of locale clock width or font scale.
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         Text("Dark from", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedButton(onClick = { editing = WindowEdit.Start }) {
-            Text(TimeFormatter.clockOf(startMinute / 60, startMinute % 60, is24Hour))
-        }
+        TimeWindowPill(
+            text = TimeFormatter.clockOf(startMinute / 60, startMinute % 60, is24Hour),
+            modifier = Modifier.weight(1f),
+            onClick = { editing = WindowEdit.Start },
+        )
         Text("to", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedButton(onClick = { editing = WindowEdit.End }) {
-            Text(TimeFormatter.clockOf(endMinute / 60, endMinute % 60, is24Hour))
-        }
+        TimeWindowPill(
+            text = TimeFormatter.clockOf(endMinute / 60, endMinute % 60, is24Hour),
+            modifier = Modifier.weight(1f),
+            onClick = { editing = WindowEdit.End },
+        )
     }
     when (editing) {
         WindowEdit.Start -> TimePickerDialog(
@@ -571,6 +577,18 @@ private fun ScheduledDarkWindow(
             onDismiss = { editing = null },
         )
         null -> Unit
+    }
+}
+
+@Composable
+private fun TimeWindowPill(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier,
+        // Trim the default button padding so the clock text keeps plenty of room inside the weighted pill.
+        contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.sm),
+    ) {
+        Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

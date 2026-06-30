@@ -18,6 +18,7 @@ import com.notdigest.app.data.system.AppIconLoader
 import com.notdigest.app.data.system.CurrentActivityHolder
 import com.notdigest.app.ui.AppViewModel
 import com.notdigest.app.ui.LocalAppIconLoader
+import com.notdigest.app.ui.inbox.InboxScrollRequest
 import com.notdigest.app.ui.LocalHapticsEnabled
 import com.notdigest.app.ui.LocalIs24Hour
 import com.notdigest.app.ui.navigation.NavRoutes
@@ -31,6 +32,7 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var appIconLoader: AppIconLoader
     @Inject lateinit var currentActivityHolder: CurrentActivityHolder
+    @Inject lateinit var inboxScrollRequest: InboxScrollRequest
 
     private val deepLinkRoute = mutableStateOf<String?>(null)
 
@@ -58,6 +60,9 @@ class MainActivity : ComponentActivity() {
                             startDestination = state.startDestination,
                             deepLinkRoute = deepLinkRoute.value,
                             onDeepLinkConsumed = { deepLinkRoute.value = null },
+                            // Armed only when the nav actually lands on the Inbox (so a deep link swallowed
+                            // by onboarding never leaves a stale scroll request behind).
+                            onInboxOpenedFromLink = { inboxScrollRequest.request() },
                         )
                     }
                 }

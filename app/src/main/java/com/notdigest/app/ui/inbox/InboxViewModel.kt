@@ -103,9 +103,12 @@ class InboxViewModel @Inject constructor(
     val messages = messageChannel.receiveAsFlow()
 
     // #1 — view-based unread dots. A notification is "new" if its delivery is more recent than the last
-    // time the user left the Inbox. Captured on resume (so the dots persist for the whole visit) and
-    // advanced on leave (so the same items aren't new next visit). Starts at MAX_VALUE so nothing is
-    // drawn as unread until the real threshold loads — avoids an all-dots flash on first frame.
+    // time the user genuinely left the Inbox. Captured on resume (so the dots persist for the whole
+    // visit) and advanced only on STOP — a real leave (another tab / backgrounding the app), NOT a
+    // transient pause like pulling the shade down to tap the digest, a brief screen-off, or a dialog.
+    // If we advanced on pause, tapping a fresh digest notification (which momentarily pauses us) would
+    // stamp "seen = now" past the just-delivered items and they'd show no dot. Starts at MAX_VALUE so
+    // nothing is drawn as unread until the real threshold loads — avoids an all-dots flash on first frame.
     private val _seenThreshold = MutableStateFlow(Long.MAX_VALUE)
     val seenThreshold: StateFlow<Long> = _seenThreshold.asStateFlow()
 
@@ -113,6 +116,7 @@ class InboxViewModel @Inject constructor(
         viewModelScope.launch { _seenThreshold.value = preferencesRepository.inboxSeenAt.first() }
     }
 
+    /** Call on a genuine leave (ON_STOP), not on a transient pause — see [_seenThreshold]. */
     fun onInboxLeft() {
         viewModelScope.launch { preferencesRepository.setInboxSeenAt(System.currentTimeMillis()) }
     }

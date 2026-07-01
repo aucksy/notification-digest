@@ -101,9 +101,11 @@ fun InboxScreen(
 
     val seenThreshold by viewModel.seenThreshold.collectAsStateWithLifecycle()
     val hintPackages by viewModel.hintPackages.collectAsStateWithLifecycle()
-    // Capture the "new since last visit" line on entry; advance it on leave.
+    // Capture the "new since last visit" line on entry; advance it only on a genuine leave (ON_STOP:
+    // another tab / app backgrounded), NOT on a transient ON_PAUSE (shade pulled down to tap the
+    // digest, brief screen-off) — otherwise the just-tapped digest's items would lose their dots.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onInboxResumed() }
-    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { viewModel.onInboxLeft() }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.onInboxLeft() }
 
     // Opened from a digest notification → jump to the top (newest), overriding the scroll position the
     // bottom-bar state restoration would otherwise bring back. A normal tab switch leaves it untouched.

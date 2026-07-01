@@ -74,11 +74,16 @@ fun NotDigestNavHost(
             onDeepLinkConsumed()
             return@LaunchedEffect
         }
+        // Only navigate if we're not already on the target. Re-navigating to the current tab pops+re-adds
+        // its back-stack entry (to save/restore state), which briefly STOPs it — and for the Inbox that
+        // stamps "seen = now" and wipes the dots off the very digest the user just tapped. Skipping the
+        // no-op nav avoids that churn; we still fire the scroll-to-top request below either way.
+        val alreadyThere = navController.currentDestination?.route == route
         if (route in NavRoutes.BOTTOM_BAR) {
-            navController.navigateTab(route)
-            // Only now that we've genuinely landed on the Inbox: ask it to jump to the newest items.
+            if (!alreadyThere) navController.navigateTab(route)
+            // Whether we navigated or were already here, a digest/status tap should jump to the newest.
             if (route == NavRoutes.INBOX) onInboxOpenedFromLink()
-        } else {
+        } else if (!alreadyThere) {
             navController.navigate(route) { launchSingleTop = true }
         }
         onDeepLinkConsumed()

@@ -1,5 +1,6 @@
 package com.notdigest.app.ui
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.notdigest.app.core.util.ThemeSchedule
@@ -7,11 +8,17 @@ import com.notdigest.app.core.util.TimeProvider
 import com.notdigest.app.domain.model.ThemeMode
 import com.notdigest.app.domain.model.UserPreferences
 import com.notdigest.app.domain.repository.PreferencesRepository
+import com.notdigest.app.service.ListenerKeepAliveService
+import com.notdigest.app.service.NotificationAccessState
 import com.notdigest.app.ui.navigation.NavRoutes
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.delay
 import javax.inject.Inject
@@ -32,7 +39,21 @@ data class AppUiState(
 class AppViewModel @Inject constructor(
     preferencesRepository: PreferencesRepository,
     private val time: TimeProvider,
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
+
+    // Keep the "always running" foreground service in sync while the app UI is alive (a safe,
+    // foreground start context). Re-evaluates when the toggle changes or the listener (dis)connects —
+    // the latter flips when access is granted/revoked. START_STICKY + BootReceiver cover the rest.
+    init {
+        combine(
+            preferencesRepository.keepAliveEnabled,
+            NotificationAccessState.connected,
+        ) { enabled, _ -> enabled && NotificationAccessState.isGranted(appContext) }
+            .distinctUntilChanged()
+            .onEach { shouldRun -> ListenerKeepAliveService.sync(appContext, shouldRun) }
+            .launchIn(viewModelScope)
+    }
 
     // Drives re-evaluation of SCHEDULED mode while the app is open, so the theme actually flips when the
     // clock crosses the window edge. Only runs while uiState is subscribed (foreground), so it costs

@@ -10,6 +10,12 @@
     <string name="channel_recommendation_desc">Occasional, dismissible tips about noisy apps.</string>
     <string name="channel_status_name">Collection status</string>
     <string name="channel_status_desc">A quiet, ongoing status while notifications are being collected.</string>
+    <string name="channel_keepalive_name">Always running</string>
+    <string name="channel_keepalive_desc">A silent, minimal notice that keeps the app alive so notifications are never missed. You can turn this off here without affecting anything else.</string>
+
+    <!-- Keep-alive foreground service -->
+    <string name="keepalive_title">Notification Digest is active</string>
+    <string name="keepalive_text">Catching notifications in the background.</string>
 
     <!-- Digest notification -->
     <string name="digest_ready_title">Your digest is ready</string>

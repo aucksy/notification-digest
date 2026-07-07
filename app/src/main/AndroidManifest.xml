@@ -21,6 +21,11 @@
          notification listener (which makes notifications slip through + breaks deep links). -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- Optional "keep app always running" mode: a tiny special-use foreground service pins the
+         process so the OEM can't unbind the notification listener in the background. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
     <!-- Gentle haptic feedback for delivery (optional, user-controllable). -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
@@ -71,6 +76,21 @@
               No default_filter_types: that would exclude SILENT notifications (the ones some OEMs
               like ColorOS show in a "Silent" tray). We want to capture every type.
             -->
+        </service>
+
+        <!--
+          Optional keep-alive: a minimal special-use foreground service whose only job is to keep the
+          process alive so the system doesn't unbind the listener under memory pressure / OEM killers.
+          It does no work of its own; on Android 13+ its notice is a silent, hide-able IMPORTANCE_MIN
+          entry (shown only because the app holds POST_NOTIFICATIONS for digests).
+        -->
+        <service
+            android:name=".service.ListenerKeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the app alive so its notification listener stays bound and Digest notifications are captured immediately instead of slipping through. No data leaves the device." />
         </service>
 
         <!-- Handles digest-notification action buttons (Deliver Now / Review / dismiss). -->

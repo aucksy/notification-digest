@@ -78,6 +78,7 @@ fun SettingsScreen(
     var showClearConfirm by remember { mutableStateOf(false) }
 
     val backgroundDone by viewModel.backgroundSetupDone.collectAsStateWithLifecycle()
+    val keepAlive by viewModel.keepAliveEnabled.collectAsStateWithLifecycle()
     var accessGranted by remember { mutableStateOf(NotificationAccessState.isGranted(context)) }
     var batteryExempt by remember { mutableStateOf(BatteryOptimizationState.isIgnoring(context)) }
     var batteryRestricted by remember { mutableStateOf(BatteryOptimizationState.isBackgroundRestricted(context)) }
@@ -209,6 +210,22 @@ fun SettingsScreen(
                                 BatteryOptimizationState.requestIgnore(context)
                             }
                         },
+                    )
+                }
+
+                // Always-on keep-alive: the reliable fix on OEMs that kill the listener in the
+                // background. On by default; adds only a silent, hide-able notice.
+                SwitchRow(
+                    title = "Keep app always running",
+                    subtitle = "Most reliable. Adds a silent, minimal notification you can hide below.",
+                    checked = keepAlive,
+                    onCheckedChange = viewModel::setKeepAlive,
+                )
+                if (keepAlive) {
+                    NavRow(
+                        title = "Hide the background notification",
+                        subtitle = "Turn off just its notification — the app keeps running",
+                        onClick = { openKeepAliveChannelSettings(context) },
                     )
                 }
             }
@@ -401,6 +418,24 @@ private fun openListenerSettings(context: android.content.Context) {
     }.onFailure {
         runCatching {
             context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+    }
+}
+
+private fun openKeepAliveChannelSettings(context: android.content.Context) {
+    // Deep-link straight to the keep-alive notification channel so the user can switch off just that
+    // notice (the service keeps running). Falls back to the app's notification settings if unavailable.
+    val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        .putExtra(Settings.EXTRA_CHANNEL_ID, Constants.CHANNEL_KEEPALIVE)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(intent) }.onFailure {
+        runCatching {
+            context.startActivity(
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
         }
     }
 }

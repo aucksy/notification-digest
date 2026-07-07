@@ -45,6 +45,19 @@ class NotificationChannels @Inject constructor(
             enableVibration(false)
         }
 
-        manager.createNotificationChannels(listOf(digest, recommendation, status))
+        // The keep-alive foreground-service notice. IMPORTANCE_MIN → silent, no status-bar icon,
+        // collapsed under "Silent". The user can turn this channel off to hide it entirely (the FGS
+        // keeps running regardless).
+        val keepAlive = NotificationChannel(
+            Constants.CHANNEL_KEEPALIVE,
+            context.getString(R.string.channel_keepalive_name),
+            NotificationManager.IMPORTANCE_MIN,
+        ).apply {
+            description = context.getString(R.string.channel_keepalive_desc)
+            setShowBadge(false)
+            enableVibration(false)
+        }
+
+        manager.createNotificationChannels(listOf(digest, recommendation, status, keepAlive))
     }
 }

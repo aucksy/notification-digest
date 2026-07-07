@@ -10,9 +10,11 @@ object Constants {
     const val CHANNEL_DIGEST = "digest_deliveries"
     const val CHANNEL_RECOMMENDATION = "smart_suggestions"
     const val CHANNEL_STATUS = "collection_status"
+    const val CHANNEL_KEEPALIVE = "keep_alive"
 
     // --- Notification ids ---
     const val NOTIF_ID_STATUS = 1
+    const val NOTIF_ID_KEEPALIVE = 2
     const val NOTIF_ID_DIGEST_BASE = 1000
     const val NOTIF_ID_RECOMMENDATION_BASE = 2000
 

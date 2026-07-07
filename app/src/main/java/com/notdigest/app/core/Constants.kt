@@ -19,6 +19,7 @@ object Constants {
     // --- WorkManager unique work ---
     const val WORK_DIGEST_DELIVERY = "work_digest_delivery"
     const val WORK_RETENTION_CLEANUP = "work_retention_cleanup"
+    const val WORK_LISTENER_REBIND = "work_listener_rebind"
 
     // --- Intent actions / extras (digest notification + deep links) ---
     const val ACTION_OPEN_ROUTE = "com.notdigest.app.action.OPEN_ROUTE"

@@ -117,14 +117,11 @@ fun InboxScreen(
             viewModel.consumeScrollToTop()
         }
     }
-    // One notification id per hint-eligible app (its first row) gets the swipe nudge.
+    // Only the single top-most hint-eligible notification nudges — never several at once. Once it's
+    // shown, the hint is marked done globally, so no app ever nudges again.
     val hintIds = remember(state.today, state.yesterday, state.older, hintPackages) {
-        val seenPkgs = HashSet<String>()
-        val ids = HashSet<Long>()
-        state.loaded().forEach { n ->
-            if (n.packageName in hintPackages && seenPkgs.add(n.packageName)) ids.add(n.id)
-        }
-        ids
+        val firstId = state.loaded().firstOrNull { it.packageName in hintPackages }?.id
+        if (firstId != null) setOf(firstId) else emptySet()
     }
 
     LaunchedEffect(Unit) {
@@ -329,7 +326,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.notificationRows(
             selected = notification.id in state.selectedIds,
             unread = isNotificationUnread(notification.deliveredAt, notification.postedAt, seenThreshold),
             hint = notification.id in hintIds,
-            onHintShown = { viewModel.markHinted(notification.packageName) },
+            onHintShown = { viewModel.markHintShown() },
             onOpen = { viewModel.open(notification) },
             onDelete = { buzz(); viewModel.delete(listOf(notification.id)) },
             onMakeRealtime = { buzz(); viewModel.makeAppRealtime(notification.packageName, notification.appName) },
@@ -544,9 +541,9 @@ private fun SwipeableNotificationRow(
                 nudge.animateTo(26f, tween(240))
                 nudge.animateTo(0f, tween(220))
             } finally {
-                // Persist even if the row is disposed mid-nudge (tab switch / scroll-off / a newer
-                // delivery from the same app) so the hint never repeats for this app. markHinted runs
-                // in the ViewModel scope, so it survives this row's cancellation.
+                // Mark the one-time hint done even if the row is disposed mid-nudge (tab switch /
+                // scroll-off / a newer delivery). It's persisted in the ViewModel scope, so it survives
+                // this row's cancellation and the hint never fires again for any app.
                 onHintShown()
             }
         }

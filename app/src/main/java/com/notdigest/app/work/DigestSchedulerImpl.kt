@@ -79,6 +79,18 @@ class DigestSchedulerImpl @Inject constructor(
             ExistingPeriodicWorkPolicy.KEEP,
             request,
         )
+
+        // Keep the notification listener alive on aggressive OEMs: a periodic rebind nudge triggers a
+        // sweep that reclaims notifications that slipped through while the listener was killed in the
+        // background. 15 min is WorkManager's periodic floor; the sweep is cheap and idempotent.
+        val rebind = PeriodicWorkRequestBuilder<ListenerRebindWorker>(15, TimeUnit.MINUTES)
+            .addTag(TAG)
+            .build()
+        workManager.enqueueUniquePeriodicWork(
+            Constants.WORK_LISTENER_REBIND,
+            ExistingPeriodicWorkPolicy.KEEP,
+            rebind,
+        )
     }
 
     override fun cancelAll() {

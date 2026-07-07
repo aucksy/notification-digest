@@ -121,19 +121,20 @@ class InboxViewModel @Inject constructor(
         viewModelScope.launch { preferencesRepository.setInboxSeenAt(System.currentTimeMillis()) }
     }
 
-    // #2 — apps eligible for the one-time "swipe right → Real-Time" hint: still on the default Digest
-    // (updatedAt == 0, i.e. the user hasn't set them) and not yet hinted.
+    // #2 — apps still eligible to teach the "swipe right → Real-Time" gesture: on the default Digest
+    // rule the user hasn't touched (updatedAt == 0). The hint fires exactly ONCE, ever, on the single
+    // top-most eligible app (see InboxScreen), so once it's been shown this collapses to empty and no
+    // app ever nudges again.
     val hintPackages: StateFlow<Set<String>> = combine(
         appRuleRepository.observeRules(),
-        preferencesRepository.swipeHintedPackages,
-    ) { rules, hinted ->
-        rules.filter { it.mode == DigestMode.DIGEST && it.updatedAt == 0L }
-            .map { it.packageName }
-            .toSet() - hinted
+        preferencesRepository.swipeHintShown,
+    ) { rules, shown ->
+        if (shown) emptySet()
+        else rules.filter { it.mode == DigestMode.DIGEST && it.updatedAt == 0L }.map { it.packageName }.toSet()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
-    fun markHinted(packageName: String) {
-        viewModelScope.launch { preferencesRepository.addSwipeHintedPackage(packageName) }
+    fun markHintShown() {
+        viewModelScope.launch { preferencesRepository.setSwipeHintShown() }
     }
 
     // Only DELIVERED notifications appear here. Waiting (suppressed) ones stay hidden until their digest

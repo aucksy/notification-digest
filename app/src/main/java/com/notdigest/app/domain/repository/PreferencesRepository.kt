@@ -41,9 +41,12 @@ interface PreferencesRepository {
     val inboxSeenAt: Flow<Long>
     suspend fun setInboxSeenAt(millis: Long)
 
-    /** Packages that have already shown the one-time "swipe right → Real-Time" hint. */
-    val swipeHintedPackages: Flow<Set<String>>
-    suspend fun addSwipeHintedPackage(packageName: String)
+    /**
+     * Whether the one-time "swipe right → Real-Time" hint has already been shown. It nudges exactly
+     * once, ever — on the single top-most not-yet-handled app — then never again for any app.
+     */
+    val swipeHintShown: Flow<Boolean>
+    suspend fun setSwipeHintShown()
 
     /**
      * Lifetime count of interruptions avoided (every genuinely-new Digest notification suppressed).

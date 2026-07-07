@@ -1,6 +1,8 @@
 package com.notdigest.app.work
 
+import android.content.ComponentName
 import android.content.Context
+import android.service.notification.NotificationListenerService
 import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
@@ -11,6 +13,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.notdigest.app.domain.model.DigestType
 import com.notdigest.app.domain.system.DigestScheduler
+import com.notdigest.app.service.DigestNotificationListenerService
 import com.notdigest.app.domain.usecase.DeliverDigestUseCase
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -30,6 +33,14 @@ class DigestDeliveryWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         val mode = inputData.getString(KEY_MODE) ?: MODE_SCHEDULED
         val type = if (mode == MODE_MANUAL) DigestType.MANUAL else DigestType.SCHEDULED
+
+        // We're already awake to deliver — nudge the listener to rebind so anything that slipped through
+        // while it was killed gets swept out of the shade (and captured for the next digest).
+        runCatching {
+            NotificationListenerService.requestRebind(
+                ComponentName(applicationContext, DigestNotificationListenerService::class.java),
+            )
+        }
 
         runCatching { deliverDigest(type) }
             .onFailure { Log.w(TAG, "Digest delivery failed", it) }

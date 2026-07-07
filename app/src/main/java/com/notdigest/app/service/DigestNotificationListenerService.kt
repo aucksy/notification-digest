@@ -1,6 +1,7 @@
 package com.notdigest.app.service
 
 import android.app.Notification
+import android.content.ComponentName
 import android.content.pm.ApplicationInfo
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -82,6 +83,14 @@ class DigestNotificationListenerService : NotificationListenerService() {
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         NotificationAccessState.setConnected(false)
+        // Self-heal: the system unbound us (memory pressure / aggressive OEM). Ask to be rebound so we
+        // resume intercepting, instead of letting notifications slip through until the app is opened.
+        // No-op if access was actually revoked by the user.
+        runCatching {
+            NotificationListenerService.requestRebind(
+                ComponentName(this, DigestNotificationListenerService::class.java),
+            )
+        }
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification, rankingMap: RankingMap?) {

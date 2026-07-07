@@ -57,12 +57,6 @@ class SettingsViewModel @Inject constructor(
 
     fun setBackgroundSetupDone(done: Boolean) = launch { preferencesRepository.setBackgroundSetupDone(done) }
 
-    /** "Keep app always running" — the foreground-service keep-alive (on by default). */
-    val keepAliveEnabled = preferencesRepository.keepAliveEnabled
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
-
-    fun setKeepAlive(enabled: Boolean) = launch { preferencesRepository.setKeepAliveEnabled(enabled) }
-
     private val exportChannel = Channel<String>(Channel.BUFFERED)
     val exportData = exportChannel.receiveAsFlow()
 

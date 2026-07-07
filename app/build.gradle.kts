@@ -33,8 +33,8 @@ android {
         applicationId = "com.notdigest.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 37
-        versionName = "1.1.26"
+        versionCode = 38
+        versionName = "1.1.27"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }

@@ -3,7 +3,6 @@ package com.notdigest.app.work
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.notdigest.app.domain.repository.PreferencesRepository
 import com.notdigest.app.domain.system.DigestScheduler
 import com.notdigest.app.service.ListenerKeepAliveService
 import com.notdigest.app.service.NotificationAccessState
@@ -11,7 +10,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -20,7 +18,6 @@ import javax.inject.Inject
 class BootReceiver : BroadcastReceiver() {
 
     @Inject lateinit var scheduler: DigestScheduler
-    @Inject lateinit var preferencesRepository: PreferencesRepository
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
@@ -34,11 +31,9 @@ class BootReceiver : BroadcastReceiver() {
                     try {
                         scheduler.rescheduleNow()
                         scheduler.ensureCleanupScheduled()
-                        // Bring the keep-alive service back up after a reboot / update (boot is an
-                        // allowed foreground-service start context; sync() is guarded either way).
-                        val keepAlive = preferencesRepository.keepAliveEnabled.first() &&
-                            NotificationAccessState.isGranted(context)
-                        ListenerKeepAliveService.sync(context, keepAlive)
+                        // Bring the keep-alive service back up after a reboot / update whenever access
+                        // is granted (boot is an allowed FGS start context; sync() is guarded anyway).
+                        ListenerKeepAliveService.sync(context, NotificationAccessState.isGranted(context))
                     } finally {
                         pending.finish()
                     }

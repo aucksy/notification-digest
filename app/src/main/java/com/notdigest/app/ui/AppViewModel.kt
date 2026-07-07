@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.delay
@@ -42,16 +43,15 @@ class AppViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
-    // Keep the "always running" foreground service in sync while the app UI is alive (a safe,
-    // foreground start context). Re-evaluates when the toggle changes or the listener (dis)connects —
-    // the latter flips when access is granted/revoked. START_STICKY + BootReceiver cover the rest.
+    // Run the always-on keep-alive whenever the app has notification access (its core permission) —
+    // no separate setting; it just runs, like Pause's monitor. The FGS is what keeps the listener
+    // bound; START_STICKY + BootReceiver cover restarts. Started here (a foreground context while the
+    // UI is up) and re-evaluated when the listener (dis)connects, i.e. when access is granted/revoked.
     init {
-        combine(
-            preferencesRepository.keepAliveEnabled,
-            NotificationAccessState.connected,
-        ) { enabled, _ -> enabled && NotificationAccessState.isGranted(appContext) }
+        NotificationAccessState.connected
+            .map { NotificationAccessState.isGranted(appContext) }
             .distinctUntilChanged()
-            .onEach { shouldRun -> ListenerKeepAliveService.sync(appContext, shouldRun) }
+            .onEach { granted -> ListenerKeepAliveService.sync(appContext, granted) }
             .launchIn(viewModelScope)
     }
 

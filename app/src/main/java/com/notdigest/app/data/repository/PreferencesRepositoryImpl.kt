@@ -39,7 +39,6 @@ class PreferencesRepositoryImpl @Inject constructor(
         val DRIVE_LAST_BACKUP = longPreferencesKey("drive_last_backup_at")
         val LIFETIME_AVOIDED = longPreferencesKey("lifetime_avoided")
         val BG_SETUP_DONE = booleanPreferencesKey("background_setup_done")
-        val KEEP_ALIVE = booleanPreferencesKey("keep_alive_enabled")
         val INBOX_SEEN_AT = longPreferencesKey("inbox_seen_at")
         val SWIPE_HINT_SHOWN = booleanPreferencesKey("swipe_hint_shown")
     }
@@ -132,15 +131,6 @@ class PreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setBackgroundSetupDone(done: Boolean) {
         dataStore.edit { it[Keys.BG_SETUP_DONE] = done }
-    }
-
-    // On by default: the keep-alive service is the reliable path to catching notifications on OEMs
-    // that kill the listener in the background.
-    override val keepAliveEnabled: Flow<Boolean> =
-        dataStore.data.map { it[Keys.KEEP_ALIVE] ?: true }.distinctUntilChanged()
-
-    override suspend fun setKeepAliveEnabled(enabled: Boolean) {
-        dataStore.edit { it[Keys.KEEP_ALIVE] = enabled }
     }
 
     override val inboxSeenAt: Flow<Long> =

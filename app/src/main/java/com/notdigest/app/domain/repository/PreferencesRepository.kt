@@ -37,10 +37,6 @@ interface PreferencesRepository {
     val backgroundSetupDone: Flow<Boolean>
     suspend fun setBackgroundSetupDone(done: Boolean)
 
-    /** "Keep app always running" — runs a minimal foreground service so the listener stays bound. On by default. */
-    val keepAliveEnabled: Flow<Boolean>
-    suspend fun setKeepAliveEnabled(enabled: Boolean)
-
     /** Epoch millis of the last time the Inbox was viewed — drives "new since your last visit" dots. */
     val inboxSeenAt: Flow<Long>
     suspend fun setInboxSeenAt(millis: Long)

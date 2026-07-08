@@ -67,6 +67,7 @@ class ListenerKeepAliveService : Service() {
                     description = getString(R.string.channel_keepalive_desc)
                     setShowBadge(false)
                     enableVibration(false)
+                    lockscreenVisibility = Notification.VISIBILITY_SECRET
                 },
             )
         }
@@ -83,6 +84,9 @@ class ListenerKeepAliveService : Service() {
             .setContentText(getString(R.string.keepalive_text))
             .setOngoing(true)
             .setContentIntent(tapIntent)
+            // Belt-and-suspenders with the channel setting: keep it off the lockscreen on OEMs that
+            // read the per-notification visibility.
+            .setVisibility(Notification.VISIBILITY_SECRET)
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

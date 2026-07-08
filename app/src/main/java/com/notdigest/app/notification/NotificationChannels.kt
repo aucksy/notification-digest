@@ -1,5 +1,6 @@
 package com.notdigest.app.notification
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -45,9 +46,10 @@ class NotificationChannels @Inject constructor(
             enableVibration(false)
         }
 
-        // The keep-alive foreground-service notice. IMPORTANCE_MIN → silent, no status-bar icon,
-        // collapsed under "Silent". The user can turn this channel off to hide it entirely (the FGS
-        // keeps running regardless).
+        // The keep-alive foreground-service notice, made as invisible as Android allows while the app
+        // can post notifications: IMPORTANCE_MIN (silent, no status-bar icon) + VISIBILITY_SECRET
+        // (never on the lockscreen). All that remains is a collapsed line in the pulled-down shade's
+        // "Silent" section — so it never prompts the user to check for a digest.
         val keepAlive = NotificationChannel(
             Constants.CHANNEL_KEEPALIVE,
             context.getString(R.string.channel_keepalive_name),
@@ -56,7 +58,11 @@ class NotificationChannels @Inject constructor(
             description = context.getString(R.string.channel_keepalive_desc)
             setShowBadge(false)
             enableVibration(false)
+            lockscreenVisibility = Notification.VISIBILITY_SECRET
         }
+
+        // Drop the pre-v1.1.28 keep-alive channel (its lockscreen visibility can't be changed in place).
+        manager.deleteNotificationChannel(Constants.CHANNEL_KEEPALIVE_OLD)
 
         manager.createNotificationChannels(listOf(digest, recommendation, status, keepAlive))
     }

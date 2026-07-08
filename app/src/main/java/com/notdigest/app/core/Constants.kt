@@ -10,7 +10,10 @@ object Constants {
     const val CHANNEL_DIGEST = "digest_deliveries"
     const val CHANNEL_RECOMMENDATION = "smart_suggestions"
     const val CHANNEL_STATUS = "collection_status"
-    const val CHANNEL_KEEPALIVE = "keep_alive"
+    // v2 id: a channel's lockscreen visibility can't be changed once created, so switching the
+    // keep-alive notice to VISIBILITY_SECRET needs a fresh channel (the old "keep_alive" is deleted).
+    const val CHANNEL_KEEPALIVE = "keep_alive_quiet"
+    const val CHANNEL_KEEPALIVE_OLD = "keep_alive"
 
     // --- Notification ids ---
     const val NOTIF_ID_STATUS = 1

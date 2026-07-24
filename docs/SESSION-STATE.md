@@ -1,8 +1,8 @@
 # Notification Digest — current state & handoff
 
-_Snapshot for picking up in a fresh chat. Last updated **2026-07-24**: both open threads resolved to
-"no code needed" — keep-alive hide **verified working on device**, Play account confirmed **Personal**.
-Shipped version is still **v1.1.28** (versionCode 39); no new build was required._
+_Snapshot for picking up in a fresh chat. Last updated **2026-07-24**. Keep-alive hide **verified
+working on device**; Play account confirmed **Personal**. Shipped **v1.1.29** (versionCode 40) =
+removed the Inbox swipe gesture and moved its actions into the long-press selection top bar._
 
 ## What this is
 Native Android app (`com.notdigest.app`, Kotlin/Compose/Hilt/Room/WorkManager/DataStore, minSdk 26 /
@@ -24,7 +24,7 @@ apps are untouched. Repo: **github.com/aucksy/notification-digest**.
 - Standing rule: run an adversarial review (subagent/Workflow) BEFORE tagging, not after. Keep unit
   tests in the same commit as any changed public signature.
 
-## Recently shipped this arc (v1.1.22 → v1.1.28)
+## Recently shipped this arc (v1.1.22 → v1.1.29)
 - **v1.1.22** permanent suggestion dismissal + honor the "Smart suggestions" toggle; tile-shake fix
   (`AppRuleRepository.ensureSeeded` seeds a rule the first time the listener sees a new app so the
   swipe hint can fire); deliberate-swipe threshold; **Scheduled (Auto) dark mode** (window default
@@ -35,6 +35,16 @@ apps are untouched. Repo: **github.com/aucksy/notification-digest**.
 - **v1.1.25** listener self-heal via `requestRebind` (onListenerDisconnected + a 15-min
   `ListenerRebindWorker` + at each digest delivery); swipe nudge = only the top-most new app, once ever.
 - **v1.1.26–28** the **keep-alive foreground service** saga (see below).
+- **v1.1.29** removed the **Inbox swipe gesture** (owner: too many accidental triggers).
+  `SwipeToDismissBox` + its teaching-nudge are gone; `SwipeableNotificationRow` → plain
+  `NotificationRow` (tap opens / long-press selects). Swipe's two actions now live in the long-press
+  selection top bar (`SelectionBar`): **Delete** (already there) + new **Make Real-Time** (⚡). Make
+  Real-Time is now **batch-capable** — `makeSelectedRealtime(ids)` moves every app in the selection via
+  `setModeForAll`, one Undo restores each app's prior mode. Pure `selectedApps()` helper +
+  `InboxSelectionTest`. Dead swipe-hint pref removed (`swipeHintShown`/`SWIPE_HINT_SHOWN`).
+  Adversarially reviewed (no blockers); hardened the top bar for large font scales. **Tradeoff:**
+  Make-Real-Time is now long-press-only (no swipe hint) — a one-time "press & hold to select" tip is an
+  easy follow-up if discoverability suffers. See `[[notdigest-inbox-swipe-removed]]`.
 
 ## ✅ THREAD 1 — keep-alive notification — RESOLVED (2026-07-24, verified on device)
 Aggressive OEMs (user is on **ColorOS/realme**) unbind the listener in the background → slip-through.

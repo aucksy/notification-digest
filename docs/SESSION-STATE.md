@@ -1,6 +1,8 @@
 # Notification Digest — current state & handoff
 
-_Snapshot for picking up in a fresh chat. Last updated after **v1.1.28** (versionCode 39)._
+_Snapshot for picking up in a fresh chat. Last updated **2026-07-24**: both open threads resolved to
+"no code needed" — keep-alive hide **verified working on device**, Play account confirmed **Personal**.
+Shipped version is still **v1.1.28** (versionCode 39); no new build was required._
 
 ## What this is
 Native Android app (`com.notdigest.app`, Kotlin/Compose/Hilt/Room/WorkManager/DataStore, minSdk 26 /
@@ -34,33 +36,37 @@ apps are untouched. Repo: **github.com/aucksy/notification-digest**.
   `ListenerRebindWorker` + at each digest delivery); swipe nudge = only the top-most new app, once ever.
 - **v1.1.26–28** the **keep-alive foreground service** saga (see below).
 
-## ▶ OPEN THREAD 1 — keep-alive notification (ACTIVE, awaiting user's on-device check)
+## ✅ THREAD 1 — keep-alive notification — RESOLVED (2026-07-24, verified on device)
 Aggressive OEMs (user is on **ColorOS/realme**) unbind the listener in the background → slip-through.
 Fix = Pause's `specialUse` foreground service (`service/ListenerKeepAliveService`) that pins the
 process so the listener stays bound. See memory `[[notdigest-keepalive]]`.
-- **Hard constraint:** an FGS must show a notification, and Android only hides it when the app has NO
-  `POST_NOTIFICATIONS`. NotDigest MUST hold it (to post digests), so the keep-alive **cannot be 100%
-  invisible** while digest pop-ups exist.
-- v1.1.27 removed the toggle — it just runs when notification access is granted (like Pause).
-- **v1.1.28 = user chose "hide it" (option B):** channel `IMPORTANCE_MIN` (no status-bar icon) +
-  `lockscreenVisibility = VISIBILITY_SECRET` (off lockscreen) + `setVisibility(SECRET)`. Channel id
-  bumped `keep_alive`→`keep_alive_quiet` (visibility is immutable once a channel exists) and the old
-  channel is deleted in `NotificationChannels.ensureChannels()`.
-- **NEXT:** user verifies on ColorOS whether the notice is truly gone from lockscreen/status bar.
-  If ColorOS overrides `VISIBILITY_SECRET`, the fallback is **option A = fully notification-free**:
-  remove `POST_NOTIFICATIONS` from the manifest + stop posting digest/status notifications (digests
-  become in-app only, no "digest ready" pop-up) → the FGS then becomes 100% invisible on Android 13+.
+- **v1.1.28's hide (option B) WORKS on the user's ColorOS phone** — the always-on notice is gone from
+  **both** the status bar and the lockscreen. Mechanism kept as-is: keep-alive channel `IMPORTANCE_MIN`
+  (no status-bar icon) + `lockscreenVisibility = VISIBILITY_SECRET` (off lockscreen) +
+  `setVisibility(SECRET)`; channel id bumped `keep_alive`→`keep_alive_quiet` (visibility is immutable
+  once a channel exists) and the old channel deleted in `NotificationChannels.ensureChannels()`.
+  **No further action; no new build.**
+- **Hard constraint (still true, for future reference):** an FGS must show a notification; Android only
+  fully hides it when the app has NO `POST_NOTIFICATIONS`. NotDigest holds it (to post digests), so a
+  collapsed line can still appear in the pulled-down "Silent" shade — acceptable to the user.
+- **Dormant fallback** (only if a future ColorOS update resurfaces the notice): **option A =
+  notification-free** — remove `POST_NOTIFICATIONS` from the manifest + stop posting digest/status
+  notifications (digests become in-app only, no "digest ready" pop-up) → the FGS becomes 100% invisible
+  on Android 13+. Not needed now.
 
-## ▶ OPEN THREAD 2 — Play Store submission (prep done in-repo; owner-only steps remain)
+## ▶ OPEN THREAD 2 — Play Store submission (Personal account confirmed; only owner steps remain)
 All prep complete (see `docs/PLAY_SUBMISSION_CHECKLIST.md`, `STORE_LISTING.md`, `PLAY_DECLARATIONS.md`).
+- **Account type = PERSONAL (confirmed 2026-07-24)** → Google requires a **closed test: ≥12 testers
+  opted in for 14 continuous days** before Production unlocks. This is now the locked plan
+  (checklist §7). An Organization account would have skipped it — but it's Personal, so we don't.
 - Privacy policy LIVE: **https://aucksy.github.io/notification-digest/** (GitHub Pages from `docs/`).
 - Store graphics in `play/assets/` (512 icon + 1024×500 feature graphic).
-- CI already builds the signed **`.aab`** on each tag = the upload artifact.
-- **Owner-only:** create Play Console account, capture 2–8 phone screenshots, record the
-  notification-access demo video, add the Play app-signing **SHA-1** to the Google OAuth client
-  (project `gmailapi-491903`) or Drive backup breaks in prod, press Send for review.
-- **UNANSWERED GATE:** is the Play account **personal** (→ 12-tester / 14-day closed test required
-  before Production) or **organization** (→ straight to Production)?
+- CI already builds the signed **`.aab`** on each tag = the upload artifact (latest tag **v1.1.28**).
+- **Owner-only, in order:** create Console account ($25) → create app → paste listing + privacy URL +
+  declarations → capture 2–8 phone screenshots → record the notification-access demo video → Internal
+  test (smoke) → **recruit ≥12 testers, hold 14 continuous days (closed test)** → add the Play
+  app-signing **SHA-1** to the Google OAuth client (project `gmailapi-491903`) or Drive backup breaks
+  in prod → Production → Send for review.
 - `QUERY_ALL_PACKAGES` is the declaration most likely to draw a question; `<queries>` fallback ready.
 
 ## Where things live

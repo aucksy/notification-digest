@@ -3,26 +3,28 @@
 The single ordered runbook. Each step says **who** does it and **where**. Items marked 🔒 can only be
 done by you (Google account / Console / device); everything else is already prepared in this repo.
 
-> **State as of v1.1.21:** signed AAB builds on every `v*` tag; privacy policy hosted; icon + feature
-> graphic generated; listing copy, declarations, and Data Safety answers drafted. What's left is
-> Console data entry, screenshots, and (if Drive backup matters) one OAuth SHA-1.
+> **State as of v1.1.28:** signed AAB builds on every `v*` tag; privacy policy hosted; icon + feature
+> graphic generated; listing copy, declarations, and Data Safety answers drafted. **Account type is
+> confirmed PERSONAL (2026-07-24)** → the closed test in §7 is required before Production. What's left
+> is Console data entry, screenshots, the demo video, the 12-tester closed test, and (if Drive backup
+> matters) one OAuth SHA-1.
 
 ---
 
 ## 0. One-time account setup 🔒
 
 - [ ] **Create / open a Google Play Console account** — https://play.google.com/console
-  ($25 one-time). Note whether it's a **Personal** or **Organization** account:
-  - **Personal** → Google requires a **closed test with 12+ testers for 14 continuous days**
-    *before* you can promote to Production. Plan for this (step 7).
-  - **Organization** → no 12-tester rule; you can go to Production after review.
+  ($25 one-time). **Confirmed 2026-07-24: this is a PERSONAL account**, so:
+  - **Personal (our case)** → Google requires a **closed test with 12+ testers for 14 continuous days**
+    *before* you can promote to Production. This is planned in step 7 — budget ~2 weeks for it.
+  - *(Organization would have skipped the 12-tester rule — not applicable here.)*
 - [ ] **Create app** → name **Notification Digest**, language **English (US)**, type **App**, **Free**.
 
 ## 1. The artifact to upload (already automated)
 
 - [ ] Confirm the latest release built green and grab the **`.aab`** (not the `.apk`) — Play wants the
       bundle. The CI uploads it to the GitHub Release for each tag.
-      Latest: `v1.1.21`. To cut a fresh build, bump `versionCode`/`versionName` in
+      Latest: `v1.1.28`. To cut a fresh build, bump `versionCode`/`versionName` in
       `app/build.gradle.kts`, commit, push `main`, then `git tag vX.Y.Z <sha> && git push origin vX.Y.Z`.
 - [ ] The **first AAB upload enrolls the app in Play App Signing automatically** — accept it.
 
@@ -70,10 +72,21 @@ In **Grow → Store presence → Main store listing**:
       install via the opt-in link. Verify: notification access prompt, a digest delivers, inbox groups
       by day, the new unread dots + swipe-right hint, and (if step 5 done) Drive backup connects.
 
-## 7. Closed test (Personal accounts only) 🔒
+## 7. Closed test — REQUIRED (Personal account) 🔒
 
-- [ ] If Personal: **Testing → Closed testing**, recruit **≥12 testers**, keep them opted in for
-      **14 continuous days**. Only then does Production unlock.
+This is the real gate to going public, and the slowest part — plan ~2 weeks. Google will not unlock
+Production until you've run a closed test that meets **all** of these at once:
+- [ ] **Testing → Closed testing** → use the default "Closed testing" track (or create one) → **Create
+      release** → upload the same signed **`.aab`**.
+- [ ] **Add ≥12 testers by email.** Either paste their Google-account emails directly, or make a Google
+      Group and add the group. Recruit friends/family — they just need an Android phone + a Google
+      account. Aim for a few spare (13–15) in case someone drops out.
+- [ ] **Send each tester the opt-in link** (shown on the track page). Each person must open it, tap
+      **Become a tester**, and install the app from Play at least once.
+- [ ] **Keep ≥12 testers opted in for 14 continuous days.** The 14 days is continuous — if the opted-in
+      count dips below 12, the timer can reset. Ask testers to stay opted in for the two weeks; they
+      don't have to use the app daily, just not leave the test.
+- [ ] After 14 days with ≥12 testers held, Play marks Production eligible → go to step 8.
 
 ## 8. Production 🔒
 

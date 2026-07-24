@@ -1,10 +1,7 @@
 package com.notdigest.app.ui.inbox
 
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -23,7 +20,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
@@ -35,7 +31,6 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -47,11 +42,8 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,15 +53,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -80,7 +70,6 @@ import com.notdigest.app.ui.LocalHapticsEnabled
 import com.notdigest.app.ui.components.AppIcon
 import com.notdigest.app.ui.components.CountPill
 import com.notdigest.app.ui.components.EmptyState
-import com.notdigest.app.ui.components.NotDigestCard
 import com.notdigest.app.ui.components.NotificationListItem
 import com.notdigest.app.ui.theme.NotDigestTheme
 import com.notdigest.app.ui.theme.Spacing
@@ -100,7 +89,6 @@ fun InboxScreen(
     val buzz = { if (hapticsOn) haptic.performHapticFeedback(HapticFeedbackType.LongPress) }
 
     val seenThreshold by viewModel.seenThreshold.collectAsStateWithLifecycle()
-    val hintPackages by viewModel.hintPackages.collectAsStateWithLifecycle()
     // Capture the "new since last visit" line on entry; advance it only on a genuine leave (ON_STOP:
     // another tab / app backgrounded), NOT on a transient ON_PAUSE (shade pulled down to tap the
     // digest, brief screen-off) — otherwise the just-tapped digest's items would lose their dots.
@@ -116,12 +104,6 @@ fun InboxScreen(
             listState.scrollToItem(0)
             viewModel.consumeScrollToTop()
         }
-    }
-    // Only the single top-most hint-eligible notification nudges — never several at once. Once it's
-    // shown, the hint is marked done globally, so no app ever nudges again.
-    val hintIds = remember(state.today, state.yesterday, state.older, hintPackages) {
-        val firstId = state.loaded().firstOrNull { it.packageName in hintPackages }?.id
-        if (firstId != null) setOf(firstId) else emptySet()
     }
 
     LaunchedEffect(Unit) {
@@ -152,6 +134,7 @@ fun InboxScreen(
                     count = state.selectedIds.size,
                     onClose = viewModel::clearSelection,
                     onSelectAll = viewModel::selectAll,
+                    onMakeRealtime = { buzz(); viewModel.makeSelectedRealtime(state.selectedIds.toList()) },
                     onDelete = { buzz(); viewModel.delete(state.selectedIds.toList()) },
                 )
             } else {
@@ -214,11 +197,11 @@ fun InboxScreen(
 
                     state.today?.let { sec ->
                         stickyHeader(key = "today") { DayHeader(sec.label, sec.count) }
-                        notificationRows(sec.notifications, state, viewModel, buzz, seenThreshold, hintIds)
+                        notificationRows(sec.notifications, state, viewModel, buzz, seenThreshold)
                     }
                     state.yesterday?.let { sec ->
                         stickyHeader(key = "yesterday") { DayHeader(sec.label, sec.count) }
-                        notificationRows(sec.notifications, state, viewModel, buzz, seenThreshold, hintIds)
+                        notificationRows(sec.notifications, state, viewModel, buzz, seenThreshold)
                     }
                     state.older?.let { older ->
                         stickyHeader(key = "older") {
@@ -227,7 +210,7 @@ fun InboxScreen(
                         if (older.expanded) {
                             older.dates.forEach { date ->
                                 item(key = "older-${date.key}") { DateSubHeader(date.label, date.count) }
-                                notificationRows(date.notifications, state, viewModel, buzz, seenThreshold, hintIds)
+                                notificationRows(date.notifications, state, viewModel, buzz, seenThreshold)
                             }
                         }
                     }
@@ -317,19 +300,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.notificationRows(
     viewModel: InboxViewModel,
     buzz: () -> Unit,
     seenThreshold: Long,
-    hintIds: Set<Long>,
 ) {
     items(notifications, key = { it.id }) { notification ->
-        SwipeableNotificationRow(
+        NotificationRow(
             notification = notification,
             selectionMode = state.selectionMode,
             selected = notification.id in state.selectedIds,
             unread = isNotificationUnread(notification.deliveredAt, notification.postedAt, seenThreshold),
-            hint = notification.id in hintIds,
-            onHintShown = { viewModel.markHintShown() },
             onOpen = { viewModel.open(notification) },
-            onDelete = { buzz(); viewModel.delete(listOf(notification.id)) },
-            onMakeRealtime = { buzz(); viewModel.makeAppRealtime(notification.packageName, notification.appName) },
             onToggleSelect = { viewModel.toggleSelection(notification.id) },
             onLongPress = { buzz(); viewModel.startSelection(notification.id) },
         )
@@ -430,11 +408,18 @@ private fun InboxFilters(
     }
 }
 
+/**
+ * Contextual top bar shown while notifications are selected (entered via long-press on a row). Hosts
+ * the actions that used to live on the swipe gesture: Make Real-Time (⚡) and Delete (🗑), plus Select
+ * All and a Close (✕) that clears the selection. Swipe was removed — accidental horizontal drags during
+ * a vertical scroll were firing Delete / Make-Real-Time too often.
+ */
 @Composable
 private fun SelectionBar(
     count: Int,
     onClose: () -> Unit,
     onSelectAll: () -> Unit,
+    onMakeRealtime: () -> Unit,
     onDelete: () -> Unit,
 ) {
     Row(
@@ -443,14 +428,28 @@ private fun SelectionBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Weighted so the count ellipsizes instead of shoving the action buttons off-screen at large
+        // font scales / narrow widths.
+        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onClose) {
                 Icon(Icons.Filled.Close, "Clear selection", tint = MaterialTheme.colorScheme.onPrimaryContainer)
             }
-            Text("$count selected", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text(
+                "$count selected",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
         }
-        Row {
-            TextButton(onClick = onSelectAll) { Text("All") }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onSelectAll) {
+                Text("All", color = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+            IconButton(onClick = onMakeRealtime) {
+                Icon(Icons.Filled.Bolt, "Make Real-Time", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.onPrimaryContainer)
             }
@@ -500,146 +499,53 @@ private fun AppFilterChips(
     }
 }
 
+/**
+ * One inbox row. Tap opens the notification (or toggles it while selecting); long-press starts
+ * selection, surfacing the [SelectionBar]. No swipe gesture — its Delete / Make-Real-Time actions now
+ * live in that top bar, so a stray horizontal drag can't fire them by accident.
+ */
 @Composable
-private fun SwipeableNotificationRow(
+private fun NotificationRow(
     notification: AppNotification,
     selectionMode: Boolean,
     selected: Boolean,
     unread: Boolean,
-    hint: Boolean,
-    onHintShown: () -> Unit,
     onOpen: () -> Unit,
-    onDelete: () -> Unit,
-    onMakeRealtime: () -> Unit,
     onToggleSelect: () -> Unit,
     onLongPress: () -> Unit,
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> { onMakeRealtime(); false }
-                SwipeToDismissBoxValue.EndToStart -> { onDelete(); true }
-                SwipeToDismissBoxValue.Settled -> false
-            }
-        },
-        // Require a deliberate drag (60% of the row) before either action commits. The Material default
-        // is small enough that horizontal drift during a vertical scroll could trigger a stray Delete /
-        // Make-Real-Time; this makes accidental swipes snap back instead.
-        positionalThreshold = { totalDistance -> totalDistance * 0.6f },
-    )
     val rowBackground = if (selected) MaterialTheme.colorScheme.primaryContainer else NotDigestTheme.brand.surfaceElevated
 
-    // One-time hint: nudge the row right twice to reveal the green "Real-Time" affordance, teaching
-    // the swipe. Only the first row of a not-yet-handled app gets this (decided upstream).
-    val nudge = remember { Animatable(0f) }
-    LaunchedEffect(hint) {
-        if (hint) {
-            try {
-                delay(300)
-                nudge.animateTo(36f, tween(280))
-                nudge.animateTo(0f, tween(240))
-                nudge.animateTo(26f, tween(240))
-                nudge.animateTo(0f, tween(220))
-            } finally {
-                // Mark the one-time hint done even if the row is disposed mid-nudge (tab switch /
-                // scroll-off / a newer delivery). It's persisted in the ViewModel scope, so it survives
-                // this row's cancellation and the hint never fires again for any app.
-                onHintShown()
-            }
-        }
-    }
-
-    Box(Modifier.clip(MaterialTheme.shapes.large)) {
-        if (nudge.value > 0.5f) {
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .clip(MaterialTheme.shapes.large)
-                    .background(NotDigestTheme.brand.positive),
-            ) {
-                Icon(
-                    Icons.Filled.Bolt,
-                    contentDescription = "Swipe right to make Real-Time",
-                    tint = Color.White,
-                    modifier = Modifier.align(Alignment.CenterStart).padding(start = 12.dp),
-                )
-            }
-        }
-        SwipeToDismissBox(
-            state = dismissState,
-            enableDismissFromStartToEnd = !selectionMode,
-            enableDismissFromEndToStart = !selectionMode,
-            backgroundContent = { SwipeBackground(dismissState.dismissDirection) },
-            modifier = Modifier
-                .offset { IntOffset(nudge.value.dp.roundToPx(), 0) }
-                .clip(MaterialTheme.shapes.large),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(rowBackground)
-                    .combinedClickable(
-                        onClick = { if (selectionMode) onToggleSelect() else onOpen() },
-                        onLongClick = onLongPress,
-                    )
-                    .padding(horizontal = Spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (selectionMode) {
-                    Box(
-                        modifier = Modifier
-                            .padding(start = Spacing.xs)
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (selected) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                    }
-                }
-                NotificationListItem(
-                    notification = notification,
-                    // No inner onClick — the row's combinedClickable handles tap AND long-press-to-select.
-                    onClick = null,
-                    modifier = Modifier.weight(1f),
-                    unread = unread,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SwipeBackground(direction: SwipeToDismissBoxValue) {
-    when (direction) {
-        SwipeToDismissBoxValue.StartToEnd -> SwipeReveal(
-            color = NotDigestTheme.brand.positive,
-            icon = Icons.Filled.Bolt,
-            label = "Real-Time",
-            alignment = Alignment.CenterStart,
-            iconFirst = true,
-        )
-        SwipeToDismissBoxValue.EndToStart -> SwipeReveal(
-            color = MaterialTheme.colorScheme.error,
-            icon = Icons.Filled.Delete,
-            label = "Delete",
-            alignment = Alignment.CenterEnd,
-            iconFirst = false,
-        )
-        SwipeToDismissBoxValue.Settled -> Box(Modifier.fillMaxSize())
-    }
-}
-
-@Composable
-private fun SwipeReveal(color: Color, icon: ImageVector, label: String, alignment: Alignment, iconFirst: Boolean) {
-    Box(
-        modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.large).background(color).padding(horizontal = Spacing.xl),
-        contentAlignment = alignment,
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.large)
+            .background(rowBackground)
+            .combinedClickable(
+                onClick = { if (selectionMode) onToggleSelect() else onOpen() },
+                onLongClick = onLongPress,
+            )
+            .padding(horizontal = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            if (iconFirst) Icon(icon, null, tint = Color.White)
-            Text(label, color = Color.White, style = MaterialTheme.typography.labelLarge)
-            if (!iconFirst) Icon(icon, null, tint = Color.White)
+        if (selectionMode) {
+            Box(
+                modifier = Modifier
+                    .padding(start = Spacing.xs)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (selected) Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(14.dp))
+            }
         }
+        NotificationListItem(
+            notification = notification,
+            // No inner onClick — the row's combinedClickable handles tap AND long-press-to-select.
+            onClick = null,
+            modifier = Modifier.weight(1f),
+            unread = unread,
+        )
     }
 }

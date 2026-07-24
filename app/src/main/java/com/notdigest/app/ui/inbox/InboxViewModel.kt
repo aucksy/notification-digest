@@ -121,22 +121,6 @@ class InboxViewModel @Inject constructor(
         viewModelScope.launch { preferencesRepository.setInboxSeenAt(System.currentTimeMillis()) }
     }
 
-    // #2 — apps still eligible to teach the "swipe right → Real-Time" gesture: on the default Digest
-    // rule the user hasn't touched (updatedAt == 0). The hint fires exactly ONCE, ever, on the single
-    // top-most eligible app (see InboxScreen), so once it's been shown this collapses to empty and no
-    // app ever nudges again.
-    val hintPackages: StateFlow<Set<String>> = combine(
-        appRuleRepository.observeRules(),
-        preferencesRepository.swipeHintShown,
-    ) { rules, shown ->
-        if (shown) emptySet()
-        else rules.filter { it.mode == DigestMode.DIGEST && it.updatedAt == 0L }.map { it.packageName }.toSet()
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
-
-    fun markHintShown() {
-        viewModelScope.launch { preferencesRepository.setSwipeHintShown() }
-    }
-
     // Only DELIVERED notifications appear here. Waiting (suppressed) ones stay hidden until their digest
     // time, or until the user taps "see all now" — that suppression is the core of the app.
     private val delivered = query.flatMapLatest { q ->
@@ -278,15 +262,25 @@ class InboxViewModel @Inject constructor(
         }
     }
 
-    fun makeAppRealtime(packageName: String, appName: String) {
+    /**
+     * Move every app represented in the current selection to Real-Time (what the old swipe-right did,
+     * now driven from the selection top bar). Captures each app's prior mode first so a single Undo can
+     * restore them all — apps in one selection may have started from different modes.
+     */
+    fun makeSelectedRealtime(ids: List<Long>) {
+        val apps = selectedApps(uiState.value.loaded(), ids.toSet())
+        if (apps.isEmpty()) return
         viewModelScope.launch {
-            val previous = appRuleRepository.getMode(packageName)
-            appRuleRepository.setMode(packageName, appName, DigestMode.REALTIME)
-            if (appFilter.value == packageName) appFilter.value = null
+            val previous = apps.map { (pkg, name) -> Triple(pkg, name, appRuleRepository.getMode(pkg)) }
+            appRuleRepository.setModeForAll(apps, DigestMode.REALTIME)
+            // Drop an app filter that now points at a just-moved app, so its rows don't look stranded.
+            if (appFilter.value != null && apps.any { it.first == appFilter.value }) appFilter.value = null
+            clearSelection()
             messageChannel.send(
                 InboxMessage(
-                    text = "$appName is now Real-Time",
-                    undo = { appRuleRepository.setMode(packageName, appName, previous) },
+                    text = if (apps.size == 1) "${apps.first().second} is now Real-Time"
+                    else "${apps.size} apps are now Real-Time",
+                    undo = { previous.forEach { (pkg, name, mode) -> appRuleRepository.setMode(pkg, name, mode) } },
                 ),
             )
         }
@@ -317,3 +311,14 @@ class InboxViewModel @Inject constructor(
         LaunchResult.FAILED -> "Couldn't open $appName"
     }
 }
+
+/**
+ * Distinct apps (package → display name, in first-seen order) among the given selected notification ids.
+ * Pure and framework-free so it can be unit-tested without the ViewModel's dependencies.
+ */
+internal fun selectedApps(loaded: List<AppNotification>, ids: Set<Long>): List<Pair<String, String>> =
+    loaded.asSequence()
+        .filter { it.id in ids }
+        .distinctBy { it.packageName }
+        .map { it.packageName to it.appName }
+        .toList()

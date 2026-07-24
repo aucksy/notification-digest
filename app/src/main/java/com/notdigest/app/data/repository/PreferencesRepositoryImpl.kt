@@ -40,7 +40,6 @@ class PreferencesRepositoryImpl @Inject constructor(
         val LIFETIME_AVOIDED = longPreferencesKey("lifetime_avoided")
         val BG_SETUP_DONE = booleanPreferencesKey("background_setup_done")
         val INBOX_SEEN_AT = longPreferencesKey("inbox_seen_at")
-        val SWIPE_HINT_SHOWN = booleanPreferencesKey("swipe_hint_shown")
     }
 
     override val preferences: Flow<UserPreferences> = dataStore.data.map { p ->
@@ -138,13 +137,6 @@ class PreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setInboxSeenAt(millis: Long) {
         dataStore.edit { it[Keys.INBOX_SEEN_AT] = millis }
-    }
-
-    override val swipeHintShown: Flow<Boolean> =
-        dataStore.data.map { it[Keys.SWIPE_HINT_SHOWN] ?: false }.distinctUntilChanged()
-
-    override suspend fun setSwipeHintShown() {
-        dataStore.edit { it[Keys.SWIPE_HINT_SHOWN] = true }
     }
 
     override val lifetimeAvoided: Flow<Long> =

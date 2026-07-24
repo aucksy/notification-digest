@@ -144,7 +144,7 @@ class DigestNotificationListenerService : NotificationListenerService() {
     private suspend fun processWithLookup(captured: CapturedNotification, countRealtime: Boolean = true) {
         try {
             // ensureSeeded (not getMode) so a brand-new app gets a default rule row the first time it
-            // posts — making it visible in the Apps list and eligible for the one-time swipe hint.
+            // posts — making it visible in the Apps list for management.
             if (appRuleRepository.ensureSeeded(
                     captured.packageName,
                     captured.appName,
